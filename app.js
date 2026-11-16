@@ -409,11 +409,18 @@ async function analyzeReplay(value) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ url: value }),
     });
+    if (!response.headers.get("content-type")?.includes("application/json")) {
+      throw new Error(
+        apiBaseUrl
+          ? "The configured analysis server returned a non-JSON response. Its URL may be incorrect."
+          : "This site has no running analysis server. GitHub Pages cannot analyze replay links; open the hosted Clxped site instead.",
+      );
+    }
     let data;
     try {
       data = await response.json();
     } catch {
-      throw new Error("The analysis server returned an invalid response.");
+      throw new Error("The analysis server returned invalid JSON. Check the backend service.");
     }
     if (!response.ok) throw new Error(data.error || "Could not retrieve chat for that replay.");
     if (!Array.isArray(data.messages) || !["youtube", "twitch"].includes(data.platform) ||

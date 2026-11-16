@@ -8,20 +8,18 @@ are read in the browser and are not sent to the server.
 Active YouTube livestreams, private videos, and replays without available chat
 are not analyzed.
 
-## GitHub Pages and public access
+## Deploy the working website
 
 GitHub Pages only serves static files; it cannot run the replay extractors.
-To keep the public Pages frontend and enable link analysis for visitors, deploy
-the included backend as a public HTTPS service:
+Deploy the complete site and backend together once using the button below:
 
-1. Build the container: `docker build -t clxped .`
-2. Deploy it on a Docker-capable host with port `3000` exposed. The image
-   includes pinned, checksum-verified builds of yt-dlp and TwitchDownloaderCLI.
-3. Set `ALLOWED_ORIGINS=https://breezebroo.github.io` on the backend. The
-   backend also serves the site itself at its root URL.
-4. After the host gives you its public URL, set
-   `window.CLXPED_API_BASE_URL = "https://your-backend.example.com";` in
-   [api-config.js](./api-config.js), then push the change to GitHub Pages.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/BreezeBroo/clxped)
+
+After deployment finishes, open the website URL Render provides and paste a
+replay link. The site and API run together there, so no URL or code changes are
+needed. The GitHub Pages URL cannot analyze replay links. Render's free service
+can sleep when idle, so the first analysis after a quiet period may take a
+little longer.
 
 The API URL is public configuration, not a secret. The backend accepts
 cross-origin requests only from the configured origin, limits each client to
