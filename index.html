@@ -9,6 +9,8 @@
       content="Find the moments that made chat go wild. Clxped highlights audience peaks across YouTube and Twitch replays."
     />
     <title>Clxped — Find the moments chat went wild</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -22,11 +24,7 @@
     <div class="page-shell">
       <header class="topbar">
         <a class="brand" href="#" aria-label="Clxped home">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none">
-              <path d="M4 17h5l3-9 5 17 4-13 3 5h4" />
-            </svg>
-          </span>
+          <img class="brand-mark" src="favicon.svg" alt="" aria-hidden="true" />
           <span>clxped<span class="brand-period">.</span></span>
         </a>
         <nav class="top-nav" aria-label="Main navigation">
@@ -42,47 +40,46 @@
             <div class="eyebrow"><span class="status-dot"></span> THE CHAT REPLAY FINDER</div>
             <h1>Find the moments<br />chat <span>went wild.</span></h1>
             <p class="hero-description">
-              Load a chat export from a YouTube or Twitch replay. Clxped finds the busiest moments, so you can jump straight to the good part.
+              Paste a YouTube video or Twitch VOD link. Clxped retrieves available public chat and finds the busiest moments for you.
             </p>
             <form class="analyze-form" id="analyze-form" novalidate>
-              <label class="sr-only" for="video-url">Optional YouTube or Twitch replay URL</label>
+              <label class="sr-only" for="video-url">YouTube video or Twitch VOD URL</label>
               <span class="input-link-icon" aria-hidden="true">↗</span>
               <input
                 id="video-url"
                 name="video-url"
                 type="url"
-                placeholder="Optional replay link for jumping to peaks..."
+                placeholder="Paste a YouTube video or Twitch VOD link..."
                 autocomplete="url"
                 spellcheck="false"
               />
               <button type="submit" id="analyze-button">
-                <span>Analyze chat</span>
+                <span>Find chat peaks</span>
                 <span class="button-arrow" aria-hidden="true">→</span>
               </button>
             </form>
             <div class="upload-row">
               <input id="chat-file" class="sr-only" type="file" accept=".csv,.json,text/csv,application/json" />
-              <button class="upload-button" id="upload-button" type="button">Choose chat export</button>
-              <span class="upload-hint" id="upload-name">CSV or JSON · analyzed in your browser</span>
+              <button class="upload-button" id="upload-button" type="button">Upload chat export instead</button>
+              <span class="upload-hint" id="upload-name">CSV or JSON fallback</span>
             </div>
             <div class="form-meta">
-              <span class="form-hint" id="form-message">Choose a chat export to detect activity peaks.</span>
-              <button class="sample-link" id="sample-button" type="button">Try a sample <span aria-hidden="true">↗</span></button>
+              <span class="form-hint" id="form-message">Works when the replay has public chat available.</span>
             </div>
             <div class="platform-list" aria-label="Supported platforms">
               <span class="platform-chip"><span class="youtube-icon">▶</span> YouTube</span>
               <span class="platform-chip"><span class="twitch-icon">▣</span> Twitch</span>
-              <span class="privacy-note"><span aria-hidden="true">✳</span> No account needed</span>
+              <span class="privacy-note"><span aria-hidden="true">✳</span> Public chat only</span>
             </div>
           </div>
 
-          <aside class="hero-art" aria-label="Illustration of a chat activity spike">
+          <aside class="hero-art" aria-label="Chat activity chart, populated after analysis">
             <div class="art-orbit orbit-one"></div>
             <div class="art-orbit orbit-two"></div>
             <div class="signal-card">
               <div class="signal-top">
                 <span class="signal-label"><span class="status-dot"></span> CHAT ACTIVITY</span>
-                <span class="signal-live" id="chart-state">SAMPLE</span>
+                <span class="signal-live" id="chart-state">WAITING</span>
               </div>
               <div class="signal-chart" aria-hidden="true">
                 <div class="chart-grid"></div>
@@ -93,27 +90,19 @@
                       <stop offset="100%" stop-color="#c5f467" stop-opacity="0" />
                     </linearGradient>
                   </defs>
-                  <path id="chart-area"
-                    class="chart-area"
-                    d="M0 126 C24 124 30 112 48 116 S72 109 88 114 S109 106 124 108 S143 115 158 103 S176 110 192 98 S208 107 225 91 S245 100 262 82 S278 90 291 56 S309 69 319 24 S337 69 352 67 S370 51 385 70 S404 61 420 53 V150 H0Z"
-                  />
-                  <path id="chart-line"
-                    class="chart-line"
-                    d="M0 126 C24 124 30 112 48 116 S72 109 88 114 S109 106 124 108 S143 115 158 103 S176 110 192 98 S208 107 225 91 S245 100 262 82 S278 90 291 56 S309 69 319 24 S337 69 352 67 S370 51 385 70 S404 61 420 53"
-                  />
-                  <line id="peak-guide" class="peak-guide" x1="319" y1="20" x2="319" y2="146" />
-                  <circle id="peak-dot" class="peak-dot" cx="319" cy="24" r="5" />
+                  <path id="chart-area" class="chart-area" />
+                  <path id="chart-line" class="chart-line" />
+                  <line id="peak-guide" class="peak-guide" x1="0" y1="20" x2="0" y2="146" hidden />
+                  <circle id="peak-dot" class="peak-dot" cx="0" cy="0" r="5" hidden />
                 </svg>
-                <span class="peak-tooltip">PEAK · 12:48</span>
+                <span class="peak-tooltip">WAITING FOR CHAT</span>
               </div>
-              <div class="signal-axis" id="chart-axis"><span>00:00</span><span>08:00</span><span>16:00</span><span>24:00</span></div>
+              <div class="signal-axis" id="chart-axis"></div>
               <div class="signal-footer">
                 <span><span class="legend-dot"></span> Messages per 30 sec</span>
-                <span class="signal-count">4.8× <span>above avg.</span></span>
+                <span class="signal-count">— <span>above avg.</span></span>
               </div>
             </div>
-            <div class="floating-note note-top"><span class="note-emoji">💬</span><span>NO WAY HE DID THAT</span><span class="note-time">12:48</span></div>
-            <div class="floating-note note-bottom"><span class="note-emoji">⚡</span><span>chat is going OFF</span><span class="note-time">18:32</span></div>
             <div class="art-caption"><span class="caption-line"></span> EVERY MESSAGE TELLS A STORY</div>
           </aside>
         </section>
@@ -125,67 +114,38 @@
               <h2>Skip to the <span>spikes.</span></h2>
             </div>
             <div class="results-side">
-              <span class="demo-badge" id="results-badge"><span class="demo-dot"></span> SAMPLE DATA</span>
-              <span class="results-caption" id="results-caption">Try the sample or load a chat export to see detected peaks.</span>
+              <span class="analysis-badge" id="results-badge"><span class="status-dot"></span><span id="results-state">AWAITING CHAT</span></span>
+              <span class="results-caption" id="results-caption">Load a chat export to see detected peaks.</span>
             </div>
           </div>
 
           <div class="results-summary">
             <div class="video-summary">
-              <div class="video-thumb" aria-hidden="true">
-                <span class="thumb-play">▶</span>
-                <span class="thumb-time">24:16</span>
+              <div class="chat-file-icon" aria-hidden="true">
+                <span>CHAT EXPORT</span>
+                <strong>CSV · JSON</strong>
               </div>
               <div class="video-details">
-                <span class="video-platform" id="video-platform"><span class="youtube-icon">▶</span> SAMPLE CHAT</span>
-                <h3 id="video-title">The clutch play nobody saw coming</h3>
-                <span class="video-meta" id="video-meta">Sample replay <span class="meta-separator">·</span> 24 min</span>
+                <span class="video-platform" id="video-platform">CHAT EXPORT</span>
+                <h3 id="video-title">No chat loaded</h3>
+                <span class="video-meta" id="video-meta">Load a CSV or JSON chat export to begin</span>
               </div>
             </div>
             <div class="summary-stats">
-              <div class="stat"><strong id="message-count">42.8<span>k</span></strong><span>CHAT MESSAGES</span></div>
-              <div class="stat"><strong id="peak-count">5</strong><span>CHAT PEAKS</span></div>
-              <div class="stat peak-stat"><strong id="biggest-moment">12:48</strong><span>BIGGEST MOMENT</span></div>
+              <div class="stat"><strong id="message-count">—</strong><span>CHAT MESSAGES</span></div>
+              <div class="stat"><strong id="peak-count">—</strong><span>CHAT PEAKS</span></div>
+              <div class="stat peak-stat"><strong id="biggest-moment">—</strong><span>BIGGEST MOMENT</span></div>
             </div>
           </div>
 
           <div class="peaks-header">
-            <span>PEAK MOMENTS <span class="peak-count" id="peak-list-count">(5)</span></span>
+            <span>PEAK MOMENTS <span class="peak-count" id="peak-list-count">(0)</span></span>
             <span class="sort-label">SORTED BY ACTIVITY <span aria-hidden="true">↓</span></span>
           </div>
           <div class="peak-list" id="peak-list">
-            <button class="peak-row is-selected" type="button" data-time="12:48" aria-pressed="true">
-              <span class="peak-time"><span class="play-icon">▶</span> 12:48</span>
-              <span class="peak-copy"><strong>The clutch play nobody saw coming</strong><span>“NO WAY” · “WHAT A PLAY” · “HE'S HIM”</span></span>
-              <span class="peak-volume"><span class="mini-bars bars-one" aria-hidden="true"></span><strong>4.8×</strong><span>avg. chat</span></span>
-              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
-            </button>
-            <button class="peak-row" type="button" data-time="18:32" aria-pressed="false">
-              <span class="peak-time"><span class="play-icon">▶</span> 18:32</span>
-              <span class="peak-copy"><strong>Plot twist changes everything</strong><span>“WAIT WHAT” · “IT WAS HIM??” · “CHAT”</span></span>
-              <span class="peak-volume"><span class="mini-bars bars-two" aria-hidden="true"></span><strong>3.9×</strong><span>avg. chat</span></span>
-              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
-            </button>
-            <button class="peak-row" type="button" data-time="07:14" aria-pressed="false">
-              <span class="peak-time"><span class="play-icon">▶</span> 07:14</span>
-              <span class="peak-copy"><strong>That was not supposed to happen</strong><span>“LMAO” · “CLIP THAT” · “BROOOO”</span></span>
-              <span class="peak-volume"><span class="mini-bars bars-three" aria-hidden="true"></span><strong>3.2×</strong><span>avg. chat</span></span>
-              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
-            </button>
-            <button class="peak-row" type="button" data-time="21:06" aria-pressed="false">
-              <span class="peak-time"><span class="play-icon">▶</span> 21:06</span>
-              <span class="peak-copy"><strong>Chat calls it before it happens</strong><span>“IT'S RIGHT THERE” · “LOOK LEFT” · “NOOO”</span></span>
-              <span class="peak-volume"><span class="mini-bars bars-four" aria-hidden="true"></span><strong>2.7×</strong><span>avg. chat</span></span>
-              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
-            </button>
-            <button class="peak-row" type="button" data-time="03:51" aria-pressed="false">
-              <span class="peak-time"><span class="play-icon">▶</span> 03:51</span>
-              <span class="peak-copy"><strong>The moment the run starts</strong><span>“HERE WE GO” · “LOCK IN” · “👀”</span></span>
-              <span class="peak-volume"><span class="mini-bars bars-five" aria-hidden="true"></span><strong>2.1×</strong><span>avg. chat</span></span>
-              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
-            </button>
+            <p class="empty-peaks">Your detected chat peaks will appear here after analysis.</p>
           </div>
-          <p class="results-footnote" id="results-footnote"><span aria-hidden="true">✳</span> Sample data is illustrative. Load a CSV or JSON chat export for real detected peaks.</p>
+          <p class="results-footnote" id="results-footnote"><span aria-hidden="true">✳</span> Replay links are sent to the analysis server to retrieve public chat. Uploaded exports stay in your browser.</p>
         </section>
 
         <section class="how-section" id="how-it-works">
@@ -197,8 +157,8 @@
             <article class="step-card">
               <span class="step-number">01</span>
               <span class="step-icon link-icon" aria-hidden="true">↗</span>
-              <h3>Drop a replay</h3>
-              <p>Load a CSV or JSON chat export. Your file stays in your browser.</p>
+              <h3>Load chat data</h3>
+              <p>Paste a public YouTube video or Twitch VOD link. No video download needed.</p>
             </article>
             <article class="step-card">
               <span class="step-number">02</span>
@@ -210,7 +170,7 @@
               <span class="step-number">03</span>
               <span class="step-icon jump-icon" aria-hidden="true">▶</span>
               <h3>Jump right in</h3>
-              <p>Add a replay link and open a peak timestamp directly in YouTube or Twitch.</p>
+              <p>Pick a peak and jump directly to that timestamp in the replay.</p>
             </article>
           </div>
         </section>
@@ -218,9 +178,7 @@
 
       <footer class="footer">
         <a class="brand footer-brand" href="#" aria-label="Clxped home">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none"><path d="M4 17h5l3-9 5 17 4-13 3 5h4" /></svg>
-          </span>
+          <img class="brand-mark" src="favicon.svg" alt="" aria-hidden="true" />
           <span>clxped<span class="brand-period">.</span></span>
         </a>
         <span>THE CHAT REMEMBERS.</span>

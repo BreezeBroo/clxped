@@ -5,10 +5,8 @@ const uploadButton = document.querySelector("#upload-button");
 const uploadName = document.querySelector("#upload-name");
 const formMessage = document.querySelector("#form-message");
 const analyzeButton = document.querySelector("#analyze-button");
-const sampleButton = document.querySelector("#sample-button");
 const toast = document.querySelector("#toast");
 const peakList = document.querySelector("#peak-list");
-const initialPeakRows = [...document.querySelectorAll(".peak-row")];
 const binSize = 30;
 let toastTimeout;
 
@@ -17,11 +15,15 @@ function isSupportedReplay(value) {
     const url = new URL(value);
     const host = url.hostname.toLowerCase().replace(/^www\./, "");
 
-    if (host === "youtu.be") return url.pathname.length > 1;
+    if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) return false;
+    if (host === "youtu.be") return /^[\w-]{6,20}$/.test(url.pathname.split("/").filter(Boolean)[0] || "");
     if (host === "youtube.com" || host === "m.youtube.com") {
-      return Boolean(url.searchParams.get("v")) || /^\/(live|shorts|embed)\/[^/]+/.test(url.pathname);
+      const videoId = url.searchParams.get("v") || url.pathname.match(/^\/(?:live|shorts|embed)\/([^/]+)/)?.[1];
+      return /^[\w-]{6,20}$/.test(videoId || "");
     }
-    if (host === "twitch.tv") return /^\/[^/]+\/videos\/\d+/.test(url.pathname);
+    if (host === "twitch.tv" || host === "m.twitch.tv") {
+      return /^\/(?:[^/]+\/)?videos\/\d+(?:\/|$)/.test(url.pathname);
+    }
   } catch {
     return false;
   }
@@ -194,7 +196,7 @@ function findPeaks(messages) {
       time: peak.index * binSize,
       count: peak.count,
       ratio: peak.count / average,
-      samples: [...new Set(peak.messages)].slice(0, 3),
+      excerpts: [...new Set(peak.messages)].slice(0, 3),
     })),
   };
 }
@@ -227,7 +229,7 @@ function replayAtTime(value, seconds) {
   return url.href;
 }
 
-function renderPeaks(result, total, fileName, skipped) {
+function renderPeaks(result, total, fileName, skipped, replay = null) {
   const peaks = result.peaks;
   const replayUrl = input.value.trim();
   peakList.replaceChildren();
@@ -236,14 +238,20 @@ function renderPeaks(result, total, fileName, skipped) {
   document.querySelector("#peak-count").textContent = String(peaks.length);
   document.querySelector("#peak-list-count").textContent = `(${peaks.length})`;
   document.querySelector("#biggest-moment").textContent = peaks.length ? formatTime(peaks[0].time) : "—";
-  document.querySelector("#video-title").textContent = fileName.replace(/\.(csv|json)$/i, "");
-  document.querySelector("#video-platform").textContent = "IMPORTED CHAT";
+  document.querySelector("#video-title").textContent = replay?.title || fileName.replace(/\.(csv|json)$/i, "");
+  document.querySelector("#video-platform").textContent = replay
+    ? `${replay.platform.toUpperCase()} CHAT REPLAY`
+    : "UPLOADED CHAT EXPORT";
   document.querySelector("#video-meta").textContent =
-    `${formatCount(total)} messages · ${formatTime(result.bins.length * binSize)}`;
-  document.querySelector("#results-badge").lastChild.textContent = " ANALYZED CHAT";
-  document.querySelector("#results-caption").textContent = "Peaks detected from message volume in your export.";
+    `${formatCount(total)} messages · ${formatTime(replay?.duration ?? result.bins.length * binSize)}`;
+  document.querySelector("#results-state").textContent = "ANALYZED CHAT";
+  document.querySelector("#results-caption").textContent = replay
+    ? `Peaks detected from public ${replay.platform} replay chat.`
+    : "Peaks detected from message volume in your export.";
   document.querySelector("#results-footnote").lastChild.textContent =
-    "Peaks use 30-second message counts; add a replay link above to open a detected timestamp.";
+    replay
+      ? "Peaks use 30-second message counts. Chat is retrieved from the replay and not stored."
+      : "Peaks use 30-second message counts; uploaded chat exports stay in your browser.";
   document.querySelector(".peak-tooltip").textContent = peaks.length
     ? `PEAK · ${formatTime(peaks[0].time)}`
     : "NO PEAKS FOUND";
@@ -272,9 +280,9 @@ function renderPeaks(result, total, fileName, skipped) {
     copy.className = "peak-copy";
     const heading = document.createElement("strong");
     heading.textContent = `Chat spike · ${formatCount(peak.count)} messages in 30 sec`;
-    const samples = document.createElement("span");
-    samples.textContent = peak.samples.map((message) => `“${message}”`).join(" · ");
-    copy.append(heading, samples);
+    const excerpts = document.createElement("span");
+    excerpts.textContent = peak.excerpts.map((message) => `“${message}”`).join(" · ");
+    copy.append(heading, excerpts);
 
     const volume = document.createElement("span");
     volume.className = "peak-volume";
@@ -310,7 +318,7 @@ function renderPeaks(result, total, fileName, skipped) {
   renderChart(result.bins, peaks[0]);
   const suffix = skipped ? ` ${skipped} rows were skipped.` : "";
   setFormMessage(`Analyzed ${formatCount(total)} messages and found ${peaks.length} peak${peaks.length === 1 ? "" : "s"}.${suffix}`);
-  showToast(`Found ${peaks.length} chat peak${peaks.length === 1 ? "" : "s"} in ${fileName}.`);
+  showToast(`Found ${peaks.length} chat peak${peaks.length === 1 ? "" : "s"} in ${replay?.title || fileName}.`);
   document.querySelector("#moments").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -326,10 +334,14 @@ function renderChart(bins, peak) {
   document.querySelector("#chart-area").setAttribute("d", `${line} L420 150 L0 150 Z`);
   const peakX = peak ? (peak.time / (Math.max(1, bins.length - 1) * binSize)) * 420 : 0;
   const peakY = peak ? 138 - (peak.count / max) * 118 : 0;
-  document.querySelector("#peak-guide").setAttribute("x1", peakX);
-  document.querySelector("#peak-guide").setAttribute("x2", peakX);
-  document.querySelector("#peak-dot").setAttribute("cx", peakX);
-  document.querySelector("#peak-dot").setAttribute("cy", peakY);
+  const peakGuide = document.querySelector("#peak-guide");
+  const peakDot = document.querySelector("#peak-dot");
+  peakGuide.hidden = !peak;
+  peakDot.hidden = !peak;
+  peakGuide.setAttribute("x1", peakX);
+  peakGuide.setAttribute("x2", peakX);
+  peakDot.setAttribute("cx", peakX);
+  peakDot.setAttribute("cy", peakY);
   const duration = bins.length * binSize;
   document.querySelector("#chart-axis").replaceChildren(...[0, 1, 2, 3].map((step) => {
     const label = document.createElement("span");
@@ -340,37 +352,6 @@ function renderChart(bins, peak) {
     `${peak ? `${peak.ratio.toFixed(1)}×` : "—"} <span>above avg.</span>`;
 }
 
-function createSample() {
-  const messages = [];
-  for (let time = 0; time < 24 * 60; time += 30) {
-    messages.push({ time, text: "chat: watching..." });
-  }
-  const moments = [
-    [12 * 60 + 48, ["NO WAY HE DID THAT", "WHAT A PLAY", "HE'S HIM"]],
-    [18 * 60 + 32, ["WAIT WHAT", "IT WAS HIM??", "CHAT"]],
-    [7 * 60 + 14, ["LMAO", "CLIP THAT", "BROOOO"]],
-    [21 * 60 + 6, ["IT'S RIGHT THERE", "LOOK LEFT", "NOOO"]],
-    [3 * 60 + 51, ["HERE WE GO", "LOCK IN", "👀"]],
-  ];
-  moments.forEach(([time, texts], momentIndex) => {
-    for (let i = 0; i < 10 - momentIndex; i += 1) {
-      messages.push({ time: Math.floor(time / binSize) * binSize + (i % 20), text: texts[i % texts.length] });
-    }
-  });
-  return messages;
-}
-
-initialPeakRows.forEach((row) => {
-  row.addEventListener("click", () => {
-    initialPeakRows.forEach((item) => {
-      const selected = item === row;
-      item.classList.toggle("is-selected", selected);
-      item.setAttribute("aria-pressed", String(selected));
-    });
-    showToast(`Illustrative sample moment at ${row.dataset.time} selected. Load a chat export to detect real peaks.`);
-  });
-});
-
 input.addEventListener("input", () => {
   const hasReplay = isSupportedReplay(input.value.trim());
   peakList.querySelectorAll(".peak-jump").forEach((label) => {
@@ -380,7 +361,7 @@ input.addEventListener("input", () => {
 
 async function analyzeFile(file) {
   if (!file) {
-    setFormMessage("Choose a CSV or JSON chat export first, or try the sample.", true);
+    setFormMessage("Paste a replay link or choose a CSV/JSON chat export.", true);
     return;
   }
   if (file.size > 20 * 1024 * 1024) {
@@ -402,24 +383,75 @@ async function analyzeFile(file) {
     setFormMessage(error.message, true);
   } finally {
     analyzeButton.disabled = false;
-    analyzeButton.querySelector("span:first-child").textContent = "Analyze chat";
+    analyzeButton.querySelector("span:first-child").textContent = "Find chat peaks";
+  }
+}
+
+async function analyzeReplay(value) {
+  if (!value) {
+    setFormMessage("Paste a YouTube video or Twitch VOD link first.", true);
+    input.focus();
+    return;
+  }
+  if (!isSupportedReplay(value)) {
+    setFormMessage("Use a public HTTPS YouTube video or Twitch VOD link.", true);
+    input.focus();
+    return;
+  }
+
+  analyzeButton.disabled = true;
+  analyzeButton.querySelector("span:first-child").textContent = "Finding chat...";
+  setFormMessage("Retrieving public chat. This can take a little while...");
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: value }),
+    });
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("The analysis server returned an invalid response.");
+    }
+    if (!response.ok) throw new Error(data.error || "Could not retrieve chat for that replay.");
+    if (!Array.isArray(data.messages) || !["youtube", "twitch"].includes(data.platform) ||
+      typeof data.title !== "string" || !data.title.trim() ||
+      !Number.isFinite(data.duration) || data.duration < 0 ||
+      !data.messages.every((message) => message && Number.isFinite(message.time) && message.time >= 0 &&
+        typeof message.text === "string" && message.text.trim())) {
+      throw new Error("The analysis server returned invalid chat data.");
+    }
+
+    const replay = {
+      platform: data.platform,
+      title: data.title,
+      duration: Number.isFinite(data.duration) ? data.duration : undefined,
+    };
+    const result = findPeaks(data.messages);
+    renderPeaks(result, data.messages.length, `${data.title || "Replay"} chat`, 0, replay);
+  } catch (error) {
+    setFormMessage(
+      error instanceof TypeError
+        ? "Could not reach the analysis server. Start the website with npm start and try again."
+        : error.message,
+      true,
+    );
+  } finally {
+    analyzeButton.disabled = false;
+    analyzeButton.querySelector("span:first-child").textContent = "Find chat peaks";
   }
 }
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  analyzeFile(fileInput.files[0]);
+  const replayUrl = input.value.trim();
+  if (replayUrl) analyzeReplay(replayUrl);
+  else analyzeFile(fileInput.files[0]);
 });
 
 uploadButton.addEventListener("click", () => fileInput.click());
 fileInput.addEventListener("change", () => {
-  uploadName.textContent = fileInput.files[0]?.name || "CSV or JSON · analyzed in your browser";
+  uploadName.textContent = fileInput.files[0]?.name || "CSV or JSON fallback";
   if (fileInput.files[0]) analyzeFile(fileInput.files[0]);
-});
-
-sampleButton.addEventListener("click", () => {
-  const messages = createSample();
-  const result = findPeaks(messages);
-  renderPeaks(result, messages.length, "clxped-sample.csv", 0);
-  document.querySelector("#results-footnote").lastChild.textContent = "Sample data is illustrative; load your own chat export for real peaks.";
 });
