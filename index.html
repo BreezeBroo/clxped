@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#11120f" />
+    <meta
+      name="description"
+      content="Find the moments that made chat go wild. Clxped highlights audience peaks across YouTube and Twitch replays."
+    />
+    <title>Clxped — Find the moments chat went wild</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Clxped home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <path d="M4 17h5l3-9 5 17 4-13 3 5h4" />
+            </svg>
+          </span>
+          <span>clxped<span class="brand-period">.</span></span>
+        </a>
+        <nav class="top-nav" aria-label="Main navigation">
+          <a href="#how-it-works">How it works</a>
+          <a href="#moments">Explore moments</a>
+        </nav>
+        <a class="nav-cta" href="#analyze">Find your peaks <span aria-hidden="true">↗</span></a>
+      </header>
+
+      <main>
+        <section class="hero" id="analyze">
+          <div class="hero-copy">
+            <div class="eyebrow"><span class="status-dot"></span> THE CHAT REPLAY FINDER</div>
+            <h1>Find the moments<br />chat <span>went wild.</span></h1>
+            <p class="hero-description">
+              Drop a YouTube or Twitch replay. Clxped spots the chat spikes, so you can jump straight to the good part.
+            </p>
+            <form class="analyze-form" id="analyze-form" novalidate>
+              <label class="sr-only" for="video-url">YouTube or Twitch replay URL</label>
+              <span class="input-link-icon" aria-hidden="true">↗</span>
+              <input
+                id="video-url"
+                name="video-url"
+                type="url"
+                placeholder="Paste a YouTube or Twitch link..."
+                autocomplete="url"
+                spellcheck="false"
+              />
+              <button type="submit" id="analyze-button">
+                <span>Analyze replay</span>
+                <span class="button-arrow" aria-hidden="true">→</span>
+              </button>
+            </form>
+            <div class="form-meta">
+              <span class="form-hint" id="form-message">Works with YouTube videos and Twitch VODs</span>
+              <button class="sample-link" id="sample-button" type="button">Try a sample <span aria-hidden="true">↗</span></button>
+            </div>
+            <div class="platform-list" aria-label="Supported platforms">
+              <span class="platform-chip"><span class="youtube-icon">▶</span> YouTube</span>
+              <span class="platform-chip"><span class="twitch-icon">▣</span> Twitch</span>
+              <span class="privacy-note"><span aria-hidden="true">✳</span> No account needed</span>
+            </div>
+          </div>
+
+          <aside class="hero-art" aria-label="Illustration of a chat activity spike">
+            <div class="art-orbit orbit-one"></div>
+            <div class="art-orbit orbit-two"></div>
+            <div class="signal-card">
+              <div class="signal-top">
+                <span class="signal-label"><span class="status-dot"></span> CHAT ACTIVITY</span>
+                <span class="signal-live">LIVE</span>
+              </div>
+              <div class="signal-chart" aria-hidden="true">
+                <div class="chart-grid"></div>
+                <svg viewBox="0 0 420 150" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="area-fill" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stop-color="#c5f467" stop-opacity=".24" />
+                      <stop offset="100%" stop-color="#c5f467" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    class="chart-area"
+                    d="M0 126 C24 124 30 112 48 116 S72 109 88 114 S109 106 124 108 S143 115 158 103 S176 110 192 98 S208 107 225 91 S245 100 262 82 S278 90 291 56 S309 69 319 24 S337 69 352 67 S370 51 385 70 S404 61 420 53 V150 H0Z"
+                  />
+                  <path
+                    class="chart-line"
+                    d="M0 126 C24 124 30 112 48 116 S72 109 88 114 S109 106 124 108 S143 115 158 103 S176 110 192 98 S208 107 225 91 S245 100 262 82 S278 90 291 56 S309 69 319 24 S337 69 352 67 S370 51 385 70 S404 61 420 53"
+                  />
+                  <line class="peak-guide" x1="319" y1="20" x2="319" y2="146" />
+                  <circle class="peak-dot" cx="319" cy="24" r="5" />
+                </svg>
+                <span class="peak-tooltip">PEAK · 12:48</span>
+              </div>
+              <div class="signal-axis"><span>00:00</span><span>08:00</span><span>16:00</span><span>24:00</span></div>
+              <div class="signal-footer">
+                <span><span class="legend-dot"></span> Messages per minute</span>
+                <span class="signal-count">4.8× <span>above avg.</span></span>
+              </div>
+            </div>
+            <div class="floating-note note-top"><span class="note-emoji">💬</span><span>NO WAY HE DID THAT</span><span class="note-time">12:48</span></div>
+            <div class="floating-note note-bottom"><span class="note-emoji">⚡</span><span>chat is going OFF</span><span class="note-time">18:32</span></div>
+            <div class="art-caption"><span class="caption-line"></span> EVERY MESSAGE TELLS A STORY</div>
+          </aside>
+        </section>
+
+        <section class="results-section" id="moments">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow"><span class="heading-spark">✳</span> THE GOOD BITS</div>
+              <h2>Skip to the <span>spikes.</span></h2>
+            </div>
+            <div class="results-side">
+              <span class="demo-badge"><span class="demo-dot"></span> DEMO DATA</span>
+              <span class="results-caption">A preview of what your results look like</span>
+            </div>
+          </div>
+
+          <div class="results-summary">
+            <div class="video-summary">
+              <div class="video-thumb" aria-hidden="true">
+                <span class="thumb-play">▶</span>
+                <span class="thumb-time">24:16</span>
+              </div>
+              <div class="video-details">
+                <span class="video-platform"><span class="youtube-icon">▶</span> YOUTUBE REPLAY</span>
+                <h3 id="video-title">The clutch play nobody saw coming</h3>
+                <span class="video-meta">Sample replay <span class="meta-separator">·</span> 24 min</span>
+              </div>
+            </div>
+            <div class="summary-stats">
+              <div class="stat"><strong>42.8<span>k</span></strong><span>CHAT MESSAGES</span></div>
+              <div class="stat"><strong>5</strong><span>CHAT PEAKS</span></div>
+              <div class="stat peak-stat"><strong>12:48</strong><span>BIGGEST MOMENT</span></div>
+            </div>
+          </div>
+
+          <div class="peaks-header">
+            <span>PEAK MOMENTS <span class="peak-count">(5)</span></span>
+            <span class="sort-label">SORTED BY ACTIVITY <span aria-hidden="true">↓</span></span>
+          </div>
+          <div class="peak-list" id="peak-list">
+            <button class="peak-row is-selected" type="button" data-time="12:48" aria-pressed="true">
+              <span class="peak-time"><span class="play-icon">▶</span> 12:48</span>
+              <span class="peak-copy"><strong>The clutch play nobody saw coming</strong><span>“NO WAY” · “WHAT A PLAY” · “HE'S HIM”</span></span>
+              <span class="peak-volume"><span class="mini-bars bars-one" aria-hidden="true"></span><strong>4.8×</strong><span>avg. chat</span></span>
+              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
+            </button>
+            <button class="peak-row" type="button" data-time="18:32" aria-pressed="false">
+              <span class="peak-time"><span class="play-icon">▶</span> 18:32</span>
+              <span class="peak-copy"><strong>Plot twist changes everything</strong><span>“WAIT WHAT” · “IT WAS HIM??” · “CHAT”</span></span>
+              <span class="peak-volume"><span class="mini-bars bars-two" aria-hidden="true"></span><strong>3.9×</strong><span>avg. chat</span></span>
+              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
+            </button>
+            <button class="peak-row" type="button" data-time="07:14" aria-pressed="false">
+              <span class="peak-time"><span class="play-icon">▶</span> 07:14</span>
+              <span class="peak-copy"><strong>That was not supposed to happen</strong><span>“LMAO” · “CLIP THAT” · “BROOOO”</span></span>
+              <span class="peak-volume"><span class="mini-bars bars-three" aria-hidden="true"></span><strong>3.2×</strong><span>avg. chat</span></span>
+              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
+            </button>
+            <button class="peak-row" type="button" data-time="21:06" aria-pressed="false">
+              <span class="peak-time"><span class="play-icon">▶</span> 21:06</span>
+              <span class="peak-copy"><strong>Chat calls it before it happens</strong><span>“IT'S RIGHT THERE” · “LOOK LEFT” · “NOOO”</span></span>
+              <span class="peak-volume"><span class="mini-bars bars-four" aria-hidden="true"></span><strong>2.7×</strong><span>avg. chat</span></span>
+              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
+            </button>
+            <button class="peak-row" type="button" data-time="03:51" aria-pressed="false">
+              <span class="peak-time"><span class="play-icon">▶</span> 03:51</span>
+              <span class="peak-copy"><strong>The moment the run starts</strong><span>“HERE WE GO” · “LOCK IN” · “👀”</span></span>
+              <span class="peak-volume"><span class="mini-bars bars-five" aria-hidden="true"></span><strong>2.1×</strong><span>avg. chat</span></span>
+              <span class="peak-jump">Jump to moment <span aria-hidden="true">↗</span></span>
+            </button>
+          </div>
+          <p class="results-footnote"><span aria-hidden="true">✳</span> Demo results are illustrative. Real chat analysis becomes available when a platform data connection is configured.</p>
+        </section>
+
+        <section class="how-section" id="how-it-works">
+          <div class="how-intro">
+            <div class="eyebrow"><span class="heading-spark">✳</span> LESS SCROLLING, MORE HIGHLIGHTS</div>
+            <h2>Catch up in<br />the <span>best bits.</span></h2>
+          </div>
+          <div class="steps">
+            <article class="step-card">
+              <span class="step-number">01</span>
+              <span class="step-icon link-icon" aria-hidden="true">↗</span>
+              <h3>Drop a replay</h3>
+              <p>Paste a public YouTube video or Twitch VOD. No downloads, no digging.</p>
+            </article>
+            <article class="step-card">
+              <span class="step-number">02</span>
+              <span class="step-icon scan-icon" aria-hidden="true">⌁</span>
+              <h3>We find the spikes</h3>
+              <p>Chat activity reveals the laughs, clutch plays, plot twists, and “wait, what?” moments.</p>
+            </article>
+            <article class="step-card">
+              <span class="step-number">03</span>
+              <span class="step-icon jump-icon" aria-hidden="true">▶</span>
+              <h3>Jump right in</h3>
+              <p>Pick a peak and head straight to the moment everyone was talking about.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <a class="brand footer-brand" href="#" aria-label="Clxped home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none"><path d="M4 17h5l3-9 5 17 4-13 3 5h4" /></svg>
+          </span>
+          <span>clxped<span class="brand-period">.</span></span>
+        </a>
+        <span>THE CHAT REMEMBERS.</span>
+        <span class="footer-copy">© 2025 CLXPED</span>
+      </footer>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
