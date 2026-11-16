@@ -220,20 +220,38 @@ async function extractReplay(replay) {
     let title;
     if (replay.platform === "youtube") {
       const outputTemplate = path.join(temporaryDirectory, "%(id)s.%(ext)s");
-      const result = await runCommand(process.env.YTDLP_BIN || "yt-dlp", [
-        "--ignore-config",
-        "--no-warnings",
-        "--no-progress",
-        "--no-playlist",
-        "--skip-download",
-        "--match-filter", "live_status!=is_live & live_status!=is_upcoming",
-        "--write-subs",
-        "--sub-langs", "live_chat",
-        "--print", "%(title)s",
-        "--output", outputTemplate,
-        "--",
-        replay.url,
-      ]);
+      let result;
+      try {
+        result = await runCommand(process.env.YTDLP_BIN || "yt-dlp", [
+          "--ignore-config",
+          "--no-warnings",
+          "--no-progress",
+          "--no-playlist",
+          "--skip-download",
+          "--match-filter", "live_status!=is_live & live_status!=is_upcoming",
+          "--write-subs",
+          "--sub-langs", "live_chat",
+          "--print", "%(title)s",
+          "--output", outputTemplate,
+          "--",
+          replay.url,
+        ]);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message.toLowerCase() : "";
+        if (detail.includes("sign in to confirm") || detail.includes("not a bot")) {
+          throw new AppError(
+            503,
+            "YouTube is requiring verification from the analysis server. Try another public replay or upload a chat export; this server cannot complete YouTube's verification.",
+          );
+        }
+        if (detail.includes("failed to extract any player response")) {
+          throw new AppError(
+            503,
+            "YouTube did not provide the player data needed to read chat. It may be temporarily blocking the analysis server, or the replay may be unavailable. Try again later or upload a chat export.",
+          );
+        }
+        throw error;
+      }
       const chat = await findChatFile(temporaryDirectory, /\.live_chat\.(?:json|json3)$/i);
       messages = parseYoutubeChat(chat);
       title = result.stdout.trim().split(/\r?\n/).filter(Boolean).at(-1) || "YouTube replay";

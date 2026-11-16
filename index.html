@@ -64,6 +64,25 @@
               <button class="upload-button" id="upload-button" type="button">Upload chat export instead</button>
               <span class="upload-hint" id="upload-name">CSV or JSON fallback</span>
             </div>
+            <details class="export-help">
+              <summary>Need to create a chat export?</summary>
+              <p>Choose CSV on an export site, download the file, then upload it here:</p>
+              <ul>
+                <li>
+                  <a href="https://streamscharts.com/tools/chat-logs-downloader" target="_blank" rel="noopener noreferrer">
+                    Streams Charts Chat Logs Downloader
+                  </a>
+                  <span>YouTube and Twitch · CSV export</span>
+                </li>
+                <li>
+                  <a href="https://www.twitchchatdownloader.com/" target="_blank" rel="noopener noreferrer">
+                    Twitch Chat Downloader
+                  </a>
+                  <span>Twitch VODs · choose CSV (XLSX is not supported here)</span>
+                </li>
+              </ul>
+              <p class="export-disclaimer">These are independent third-party services. They receive the VOD link and may have their own limits and privacy terms.</p>
+            </details>
             <div class="form-meta">
               <span class="form-hint" id="form-message">Works when the replay has public chat available.</span>
             </div>

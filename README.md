@@ -37,7 +37,9 @@ the extractor commands on `PATH` or set `YTDLP_BIN` and
 The extractors retrieve public replay chat only; Clxped does not download the
 video or store the chat. Chat retrieval depends on the platform making replay
 chat available, and extraction tools may need updates when platform formats
-change.
+change. YouTube may also require verification or block requests from a cloud
+host; in that case, link analysis cannot retrieve the replay until YouTube
+allows requests from that server.
 
 ## Supported chat export formats
 

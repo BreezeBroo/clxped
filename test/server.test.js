@@ -131,6 +131,37 @@ test("reports missing extractor setup explicitly", async () => {
   }
 });
 
+test("explains when YouTube blocks player data for the analysis server", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "clxped-youtube-error-test-"));
+  const ytDlp = path.join(directory, "yt-dlp");
+  const oldYtDlp = process.env.YTDLP_BIN;
+  process.env.YTDLP_BIN = ytDlp;
+
+  try {
+    for (const [extractorError, expectedMessage] of [
+      [
+        "Sign in to confirm you’re not a bot",
+        /YouTube is requiring verification from the analysis server/,
+      ],
+      [
+        "Failed to extract any player response",
+        /YouTube did not provide the player data needed to read chat/,
+      ],
+    ]) {
+      await writeFile(ytDlp, `#!/bin/sh\necho 'ERROR: [youtube] ${extractorError}' >&2\nexit 1\n`);
+      await chmod(ytDlp, 0o755);
+      await assert.rejects(
+        extractReplay(parseReplayLink("https://youtu.be/abcdefghijk")),
+        (error) => error.status === 503 && expectedMessage.test(error.message),
+      );
+    }
+  } finally {
+    if (oldYtDlp === undefined) delete process.env.YTDLP_BIN;
+    else process.env.YTDLP_BIN = oldYtDlp;
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("API analyzes a replay link and rejects unsupported targets", async () => {
   const origin = "https://breezebroo.github.io";
   const preflight = await fetch(`${baseUrl}/api/analyze`, {

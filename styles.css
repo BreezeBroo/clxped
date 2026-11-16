@@ -176,6 +176,14 @@ button { color: inherit; }
 }
 .upload-button:hover { border-color: #829e4e; color: var(--lime); }
 .upload-hint { overflow: hidden; color: #77796f; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.export-help { max-width: 510px; margin-top: 9px; color: #a3a49b; font-size: 10px; }
+.export-help summary { width: fit-content; color: #dce8c3; cursor: pointer; }
+.export-help summary:hover, .export-help a:hover { color: var(--lime); }
+.export-help p { margin: 8px 0; line-height: 1.5; }
+.export-help ul { display: grid; gap: 7px; margin: 0; padding-left: 17px; }
+.export-help li span { display: block; margin-top: 2px; color: #77796f; font-size: 9px; }
+.export-help a { color: #dce8c3; text-decoration: underline; text-underline-offset: 2px; }
+.export-help .export-disclaimer { color: #77796f; font-size: 9px; }
 .form-meta { max-width: 510px; display: flex; justify-content: space-between; gap: 10px; margin-top: 11px; }
 .form-hint { color: #77796f; font-size: 10px; }
 .form-hint.is-error { color: #ff998f; }
