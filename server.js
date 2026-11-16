@@ -10,8 +10,11 @@ const MAX_CHAT_BYTES = 30 * 1024 * 1024;
 const MAX_CHAT_MESSAGES = 300000;
 const EXTRACTION_TIMEOUT_MS = 5 * 60 * 1000;
 const MAX_PROCESS_OUTPUT = 32 * 1024;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_REQUESTS = 12;
 const STATIC_FILES = new Set([
   "app.js",
+  "api-config.js",
   "apple-touch-icon.png",
   "favicon.svg",
   "index.html",
@@ -257,13 +260,54 @@ async function extractReplay(replay) {
   }
 }
 
-function sendJson(response, status, data) {
+function sendJson(response, status, data, headers = {}) {
   response.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
     "x-content-type-options": "nosniff",
+    ...headers,
   });
   response.end(JSON.stringify(data));
+}
+
+function getCorsHeaders(request, allowedOrigins) {
+  const origin = request.headers.origin;
+  if (!origin) return { allowed: true, headers: {} };
+
+  let sameOrigin = false;
+  try {
+    sameOrigin = new URL(origin).host.toLowerCase() === request.headers.host?.toLowerCase();
+  } catch {
+    sameOrigin = false;
+  }
+  if (!sameOrigin && !allowedOrigins.has(origin)) return { allowed: false, headers: {} };
+  return {
+    allowed: true,
+    headers: {
+      "access-control-allow-origin": origin,
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "content-type",
+      "access-control-max-age": "600",
+      vary: "Origin",
+    },
+  };
+}
+
+function checkRateLimit(request, limits) {
+  const now = Date.now();
+  const address = request.socket.remoteAddress || "unknown";
+  const current = limits.get(address);
+  if (current && current.resetAt > now) {
+    if (current.count >= RATE_LIMIT_REQUESTS) {
+      return Math.ceil((current.resetAt - now) / 1000);
+    }
+    current.count += 1;
+    return 0;
+  }
+
+  if (!current && limits.size >= 10000) limits.delete(limits.keys().next().value);
+  limits.set(address, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+  return 0;
 }
 
 function readJsonRequest(request) {
@@ -349,8 +393,12 @@ function serveStatic(request, response, pathname) {
   });
 }
 
-function createAppServer({ retrieveChat = extractReplay } = {}) {
+function createAppServer({
+  retrieveChat = extractReplay,
+  allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",").map((origin) => origin.trim()).filter(Boolean),
+} = {}) {
   let activeExtractions = 0;
+  const rateLimits = new Map();
   return createServer(async (request, response) => {
     let pathname;
     try {
@@ -365,13 +413,23 @@ function createAppServer({ retrieveChat = extractReplay } = {}) {
       serveStatic(request, response, pathname);
       return;
     }
+    const cors = getCorsHeaders(request, new Set(allowedOrigins));
+    if (!cors.allowed) {
+      sendJson(response, 403, { error: "This website is not allowed to use the analysis API." });
+      return;
+    }
+    if (request.method === "OPTIONS") {
+      response.writeHead(204, cors.headers);
+      response.end();
+      return;
+    }
     if (request.method !== "POST") {
       response.writeHead(405, { allow: "POST" });
       response.end();
       return;
     }
     if (activeExtractions >= 2) {
-      sendJson(response, 429, { error: "The analysis server is busy. Try again in a moment." });
+      sendJson(response, 429, { error: "The analysis server is busy. Try again in a moment." }, cors.headers);
       return;
     }
 
@@ -379,14 +437,22 @@ function createAppServer({ retrieveChat = extractReplay } = {}) {
     try {
       const body = await readJsonRequest(request);
       const replay = parseReplayLink(body?.url);
+      const retryAfter = checkRateLimit(request, rateLimits);
+      if (retryAfter) {
+        sendJson(response, 429, { error: "Too many replay analyses from this address. Try again later." }, {
+          ...cors.headers,
+          "retry-after": String(retryAfter),
+        });
+        return;
+      }
       const result = await retrieveChat(replay);
-      sendJson(response, 200, result);
+      sendJson(response, 200, result, cors.headers);
     } catch (error) {
       const status = error instanceof AppError ? error.status : 500;
       if (status >= 500) console.error("Replay analysis failed:", error);
       sendJson(response, status, {
         error: error instanceof AppError ? error.message : "The server could not analyze that replay.",
-      });
+      }, cors.headers);
     } finally {
       activeExtractions -= 1;
     }

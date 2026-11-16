@@ -7,6 +7,7 @@ const formMessage = document.querySelector("#form-message");
 const analyzeButton = document.querySelector("#analyze-button");
 const toast = document.querySelector("#toast");
 const peakList = document.querySelector("#peak-list");
+const apiBaseUrl = (window.CLXPED_API_BASE_URL || "").replace(/\/+$/, "");
 const binSize = 30;
 let toastTimeout;
 
@@ -403,7 +404,7 @@ async function analyzeReplay(value) {
   analyzeButton.querySelector("span:first-child").textContent = "Finding chat...";
   setFormMessage("Retrieving public chat. This can take a little while...");
   try {
-    const response = await fetch("/api/analyze", {
+    const response = await fetch(`${apiBaseUrl}/api/analyze`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ url: value }),
@@ -433,7 +434,7 @@ async function analyzeReplay(value) {
   } catch (error) {
     setFormMessage(
       error instanceof TypeError
-        ? "Could not reach the analysis server. Start the website with npm start and try again."
+        ? "Could not reach the analysis server. Check that it is running and api-config.js points to it."
         : error.message,
       true,
     );

@@ -12,6 +12,7 @@ const {
 } = require("../server");
 
 const server = createAppServer({
+  allowedOrigins: ["https://breezebroo.github.io"],
   retrieveChat: async (replay) => ({
     platform: replay.platform,
     title: `Replay ${replay.id}`,
@@ -131,12 +132,25 @@ test("reports missing extractor setup explicitly", async () => {
 });
 
 test("API analyzes a replay link and rejects unsupported targets", async () => {
+  const origin = "https://breezebroo.github.io";
+  const preflight = await fetch(`${baseUrl}/api/analyze`, {
+    method: "OPTIONS",
+    headers: {
+      origin,
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type",
+    },
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get("access-control-allow-origin"), origin);
+
   const valid = await fetch(`${baseUrl}/api/analyze`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", origin },
     body: JSON.stringify({ url: "https://youtu.be/abcdefghijk" }),
   });
   assert.equal(valid.status, 200);
+  assert.equal(valid.headers.get("access-control-allow-origin"), origin);
   assert.deepEqual(await valid.json(), {
     platform: "youtube",
     title: "Replay abcdefghijk",
@@ -150,6 +164,13 @@ test("API analyzes a replay link and rejects unsupported targets", async () => {
     body: JSON.stringify({ url: "https://example.com/video" }),
   });
   assert.equal(invalid.status, 400);
+
+  const blocked = await fetch(`${baseUrl}/api/analyze`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://attacker.example" },
+    body: JSON.stringify({ url: "https://youtu.be/abcdefghijk" }),
+  });
+  assert.equal(blocked.status, 403);
 });
 
 test("serves the website but does not expose backend source files", async () => {
