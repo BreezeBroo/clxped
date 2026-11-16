@@ -167,7 +167,20 @@ button { color: inherit; }
 .analyze-form button:hover { background: #d3ff80; transform: translateY(-1px); }
 .analyze-form button:disabled { opacity: .8; cursor: wait; transform: none; }
 .button-arrow { font-size: 16px; }
-
+.upload-row { display: flex; align-items: center; gap: 11px; margin-top: 11px; }
+.upload-button {
+  padding: 8px 11px;
+  border: 1px solid #414638;
+  border-radius: 6px;
+  background: #20231c;
+  color: #dce8c3;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  transition: border-color .2s, color .2s;
+}
+.upload-button:hover { border-color: #829e4e; color: var(--lime); }
+.upload-hint { overflow: hidden; color: #77796f; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .form-meta { max-width: 510px; display: flex; justify-content: space-between; gap: 10px; margin-top: 11px; }
 .form-hint { color: #77796f; font-size: 10px; }
 .form-hint.is-error { color: #ff998f; }
@@ -317,6 +330,7 @@ button { color: inherit; }
 .sort-label { color: #6f7167; }
 .sort-label span { padding-left: 4px; color: var(--lime); font-size: 10px; }
 .peak-list { border: 1px solid #30322b; border-top: 0; border-radius: 0 0 8px 8px; overflow: hidden; }
+.empty-peaks { margin: 0; padding: 22px 17px; color: #9c9e92; font-size: 11px; }
 .peak-row {
   width: 100%;
   min-height: 69px;
