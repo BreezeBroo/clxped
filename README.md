@@ -1,53 +1,28 @@
-# clxped
+# Clip Studio
 
-Clxped finds chat activity peaks from public YouTube replays and Twitch VODs.
-Paste a replay link and the local Node server retrieves available chat, then
-the browser groups messages into 30-second intervals and highlights spikes.
-You can still upload a CSV or JSON chat export as a fallback; uploaded files
-are read in the browser and are not sent to the server.
-Active YouTube livestreams, private videos, and replays without available chat
-are not analyzed.
+Clip Studio is a lightweight, local-first workspace for shaping gaming and
+livestream highlights. Upload a video from your device, preview it on a
+landscape or vertical canvas, arrange text and facecam overlays, and work with
+the trim timeline.
 
-## Deploy the working website
-
-GitHub Pages only serves static files; it cannot run the replay extractors.
-Deploy the complete site and backend together once using the button below:
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/BreezeBroo/clxped)
-
-After deployment finishes, open the website URL Render provides and paste a
-replay link. The site and API run together there, so no URL or code changes are
-needed. The GitHub Pages URL cannot analyze replay links. Render's free service
-can sleep when idle, so the first analysis after a quiet period may take a
-little longer.
-
-The API URL is public configuration, not a secret. The backend accepts
-cross-origin requests only from the configured origin, limits each client to
-12 analyses per 10 minutes, and runs at most two extractors at once. Keep the
-backend on HTTPS.
+This repository currently provides the editor interface and browser preview.
+Video export, automatic caption generation, and persistent project storage are
+not implemented yet. Uploaded videos stay in the browser and are not sent to a
+server.
 
 ## Run locally
 
-Install Node.js 18 or newer, plus [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation)
-and [TwitchDownloaderCLI](https://github.com/lay295/TwitchDownloader#cli). Put
-the extractor commands on `PATH` or set `YTDLP_BIN` and
-`TWITCH_DOWNLOADER_BIN`, then run `npm start` and open
-<http://127.0.0.1:3000>.
+Use Node.js 18 or newer:
 
-The extractors retrieve public replay chat only; Clxped does not download the
-video or store the chat. Chat retrieval depends on the platform making replay
-chat available, and extraction tools may need updates when platform formats
-change. YouTube may also require verification or block requests from a cloud
-host; in that case, link analysis cannot retrieve the replay until YouTube
-allows requests from that server.
+```sh
+npm start
+```
 
-## Supported chat export formats
+Open <http://127.0.0.1:3000>. Run the static-host checks with:
 
-CSV files need a timestamp column (`time`, `timestamp`, `created_at`,
-`content_offset_seconds`, `offset`, `seconds`, or `video_time`) and a message
-column (`message`, `text`, `body`, `content`, or `comment`). JSON can be an
-array of messages or an object containing a `messages`, `comments`, `chat`, or
-`data` array. Each message needs a time and text/body/message field. Timestamps
-can be seconds, `MM:SS`/`HH:MM:SS`, or date-time strings.
+```sh
+npm test
+```
 
-Run the focused checks with `npm test`.
+The site has no runtime package dependencies. The Node server only serves the
+allowlisted static editor files.

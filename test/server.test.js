@@ -1,25 +1,8 @@
 const assert = require("node:assert/strict");
-const { chmod, mkdtemp, rm, writeFile } = require("node:fs/promises");
-const os = require("node:os");
-const path = require("node:path");
 const { after, before, test } = require("node:test");
-const {
-  createAppServer,
-  extractReplay,
-  parseReplayLink,
-  parseTwitchChat,
-  parseYoutubeChat,
-} = require("../server");
+const { createAppServer } = require("../server");
 
-const server = createAppServer({
-  allowedOrigins: ["https://breezebroo.github.io"],
-  retrieveChat: async (replay) => ({
-    platform: replay.platform,
-    title: `Replay ${replay.id}`,
-    duration: 30,
-    messages: [{ time: 12, text: "hello chat" }],
-  }),
-});
+const server = createAppServer();
 let baseUrl;
 
 before(async () => {
@@ -31,184 +14,34 @@ after(async () => {
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
 });
 
-test("accepts supported YouTube and Twitch replay links only", () => {
-  assert.equal(parseReplayLink("https://www.youtube.com/watch?v=abcdefghijk").platform, "youtube");
-  assert.equal(parseReplayLink("https://www.twitch.tv/channel/videos/123456").platform, "twitch");
-  assert.throws(() => parseReplayLink("https://example.com/watch?v=abcdefghijk"), /Only YouTube/);
-  assert.throws(() => parseReplayLink("http://www.youtube.com/watch?v=abcdefghijk"), /HTTPS/);
-  assert.throws(() => parseReplayLink("https://www.twitch.tv/channel/clip/slug"), /VOD link/);
-});
-
-test("reads YouTube replay chat action streams and JSON3 events", () => {
-  const action = {
-    replayChatItemAction: {
-      videoOffsetTimeMsec: "12500",
-      actions: [{
-        addChatItemAction: {
-          item: {
-            liveChatTextMessageRenderer: {
-              message: { runs: [{ text: "Peak " }, { text: "message" }] },
-            },
-          },
-        },
-      }],
-    },
-  };
-  assert.deepEqual(parseYoutubeChat(JSON.stringify(action)), [{ time: 12.5, text: "Peak message" }]);
-  assert.deepEqual(parseYoutubeChat(JSON.stringify({
-    events: [{ tStartMs: "30000", segs: [{ utf8: "JSON3 message" }] }],
-  })), [{ time: 30, text: "JSON3 message" }]);
-});
-
-test("reads TwitchDownloader chat JSON", () => {
-  assert.deepEqual(parseTwitchChat(JSON.stringify({
-    comments: [{
-      content_offset_seconds: 24,
-      message: { body: "Twitch message" },
-    }],
-  })), [{ time: 24, text: "Twitch message" }]);
-});
-
-test("retrieves replay chat through the configured platform extractors", { skip: process.platform === "win32" }, async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "clxped-extractor-test-"));
-  const ytDlp = path.join(directory, "yt-dlp");
-  const twitchDownloader = path.join(directory, "TwitchDownloaderCLI");
-  const oldYtDlp = process.env.YTDLP_BIN;
-  const oldTwitchDownloader = process.env.TWITCH_DOWNLOADER_BIN;
-
-  await writeFile(ytDlp, `#!/usr/bin/env node
-const fs = require("node:fs");
-const args = process.argv.slice(2);
-const template = args[args.indexOf("--output") + 1];
-const output = template.replace("%(id)s", "videoid12345").replace("%(ext)s", "live_chat.json");
-const event = { replayChatItemAction: { videoOffsetTimeMsec: "12500", actions: [{
-  addChatItemAction: { item: { liveChatTextMessageRenderer: { message: { simpleText: "hello" } } } }
-}] } };
-fs.writeFileSync(output, JSON.stringify(event) + "\\n");
-console.log("YouTube test replay");
-`);
-  await writeFile(twitchDownloader, `#!/usr/bin/env node
-const fs = require("node:fs");
-const args = process.argv.slice(2);
-const output = args[args.indexOf("--output") + 1];
-fs.writeFileSync(output, JSON.stringify({ comments: [{
-  content_offset_seconds: 24,
-  message: { body: "hello from Twitch" }
-}] }));
-`);
-  await chmod(ytDlp, 0o755);
-  await chmod(twitchDownloader, 0o755);
-
-  try {
-    process.env.YTDLP_BIN = ytDlp;
-    process.env.TWITCH_DOWNLOADER_BIN = twitchDownloader;
-    const youtube = await extractReplay(parseReplayLink("https://youtu.be/abcdefghijk"));
-    const twitch = await extractReplay(parseReplayLink("https://twitch.tv/channel/videos/123456"));
-    assert.deepEqual(youtube.messages, [{ time: 12.5, text: "hello" }]);
-    assert.equal(youtube.title, "YouTube test replay");
-    assert.deepEqual(twitch.messages, [{ time: 24, text: "hello from Twitch" }]);
-    assert.equal(twitch.title, "Twitch VOD 123456");
-  } finally {
-    if (oldYtDlp === undefined) delete process.env.YTDLP_BIN;
-    else process.env.YTDLP_BIN = oldYtDlp;
-    if (oldTwitchDownloader === undefined) delete process.env.TWITCH_DOWNLOADER_BIN;
-    else process.env.TWITCH_DOWNLOADER_BIN = oldTwitchDownloader;
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test("reports missing extractor setup explicitly", async () => {
-  const oldYtDlp = process.env.YTDLP_BIN;
-  process.env.YTDLP_BIN = path.join(os.tmpdir(), `missing-yt-dlp-${process.pid}`);
-  try {
-    await assert.rejects(
-      extractReplay(parseReplayLink("https://youtu.be/abcdefghijk")),
-      (error) => error.status === 503 && /not installed or not on PATH/.test(error.message),
-    );
-  } finally {
-    if (oldYtDlp === undefined) delete process.env.YTDLP_BIN;
-    else process.env.YTDLP_BIN = oldYtDlp;
-  }
-});
-
-test("explains when YouTube blocks player data for the analysis server", async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "clxped-youtube-error-test-"));
-  const ytDlp = path.join(directory, "yt-dlp");
-  const oldYtDlp = process.env.YTDLP_BIN;
-  process.env.YTDLP_BIN = ytDlp;
-
-  try {
-    for (const [extractorError, expectedMessage] of [
-      [
-        "Sign in to confirm you’re not a bot",
-        /YouTube is requiring verification from the analysis server/,
-      ],
-      [
-        "Failed to extract any player response",
-        /YouTube did not provide the player data needed to read chat/,
-      ],
-    ]) {
-      await writeFile(ytDlp, `#!/bin/sh\necho 'ERROR: [youtube] ${extractorError}' >&2\nexit 1\n`);
-      await chmod(ytDlp, 0o755);
-      await assert.rejects(
-        extractReplay(parseReplayLink("https://youtu.be/abcdefghijk")),
-        (error) => error.status === 503 && expectedMessage.test(error.message),
-      );
-    }
-  } finally {
-    if (oldYtDlp === undefined) delete process.env.YTDLP_BIN;
-    else process.env.YTDLP_BIN = oldYtDlp;
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test("API analyzes a replay link and rejects unsupported targets", async () => {
-  const origin = "https://breezebroo.github.io";
-  const preflight = await fetch(`${baseUrl}/api/analyze`, {
-    method: "OPTIONS",
-    headers: {
-      origin,
-      "access-control-request-method": "POST",
-      "access-control-request-headers": "content-type",
-    },
-  });
-  assert.equal(preflight.status, 204);
-  assert.equal(preflight.headers.get("access-control-allow-origin"), origin);
-
-  const valid = await fetch(`${baseUrl}/api/analyze`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin },
-    body: JSON.stringify({ url: "https://youtu.be/abcdefghijk" }),
-  });
-  assert.equal(valid.status, 200);
-  assert.equal(valid.headers.get("access-control-allow-origin"), origin);
-  assert.deepEqual(await valid.json(), {
-    platform: "youtube",
-    title: "Replay abcdefghijk",
-    duration: 30,
-    messages: [{ time: 12, text: "hello chat" }],
-  });
-
-  const invalid = await fetch(`${baseUrl}/api/analyze`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url: "https://example.com/video" }),
-  });
-  assert.equal(invalid.status, 400);
-
-  const blocked = await fetch(`${baseUrl}/api/analyze`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: "https://attacker.example" },
-    body: JSON.stringify({ url: "https://youtu.be/abcdefghijk" }),
-  });
-  assert.equal(blocked.status, 403);
-});
-
-test("serves the website but does not expose backend source files", async () => {
+test("serves the editor shell and static assets", async () => {
   const page = await fetch(baseUrl);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /Paste a YouTube video or Twitch VOD link/);
+  assert.match(page.headers.get("content-type"), /text\/html/);
+  assert.match(await page.text(), /Clip Studio/);
 
-  const source = await fetch(`${baseUrl}/server.js`);
-  assert.equal(source.status, 404);
+  const stylesheet = await fetch(`${baseUrl}/styles.css`);
+  assert.equal(stylesheet.status, 200);
+  assert.match(stylesheet.headers.get("content-type"), /text\/css/);
+  assert.match(await stylesheet.text(), /--brand: #6959e8/);
+
+  const script = await fetch(`${baseUrl}/app.js`);
+  assert.equal(script.status, 200);
+  assert.match(script.headers.get("content-type"), /javascript/);
+});
+
+test("restricts requests to allowlisted editor assets", async () => {
+  const backend = await fetch(`${baseUrl}/server.js`);
+  assert.equal(backend.status, 404);
+
+  const oldApi = await fetch(`${baseUrl}/api/analyze`);
+  assert.equal(oldApi.status, 404);
+
+  const method = await fetch(baseUrl, { method: "POST" });
+  assert.equal(method.status, 405);
+  assert.equal(method.headers.get("allow"), "GET, HEAD");
+
+  const head = await fetch(baseUrl, { method: "HEAD" });
+  assert.equal(head.status, 200);
+  assert.equal(await head.text(), "");
 });

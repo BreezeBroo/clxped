@@ -1,465 +1,719 @@
-const form = document.querySelector("#analyze-form");
-const input = document.querySelector("#video-url");
-const fileInput = document.querySelector("#chat-file");
-const uploadButton = document.querySelector("#upload-button");
-const uploadName = document.querySelector("#upload-name");
-const formMessage = document.querySelector("#form-message");
-const analyzeButton = document.querySelector("#analyze-button");
+const tabs = [...document.querySelectorAll(".tool-tab")];
+const panel = document.querySelector("#tool-panel");
+const panelTitle = document.querySelector("#panel-title");
+const panelDescription = document.querySelector("#panel-description");
+const panelContent = document.querySelector("#panel-content");
+const stage = document.querySelector("#preview-stage");
+const video = document.querySelector("#video-preview");
+const clip = document.querySelector("#clip-block");
+const playhead = document.querySelector("#playhead");
 const toast = document.querySelector("#toast");
-const peakList = document.querySelector("#peak-list");
-const apiBaseUrl = (window.CLXPED_API_BASE_URL || "").replace(/\/+$/, "");
-const binSize = 30;
+const projectName = document.querySelector("#project-name");
+const projectStatus = document.querySelector("#project-status");
+const titleOverlay = document.querySelector("#game-title");
+const titleCopy = document.querySelector("#game-title-copy");
+const facecamOverlay = document.querySelector("#facecam-frame");
+const inspector = document.querySelector("#inspector");
+const timeDisplay = document.querySelector("#current-time");
+const durationDisplay = document.querySelector("#duration-time");
+const timelineDuration = document.querySelector("#timeline-duration");
+
+const panelMarkup = {
+  media: {
+    title: "Media",
+    description: "Add a recording to get started.",
+    label: "Media",
+  },
+  captions: {
+    title: "Captions",
+    description: "Give every clutch moment a voice.",
+    label: "Captions",
+    html: `
+      <button class="primary-button" type="button" data-action="add-captions">Add captions to clip</button>
+      <div class="caption-option"><div><strong>Auto captions</strong><br><span>Generate from your video audio</span></div><span>Coming soon</span></div>
+      <div class="section-label"><span>Caption style</span></div>
+      <button class="caption-option" type="button" data-action="caption-style"><strong>Bold highlight</strong><span> Aa </span></button>
+      <p class="panel-note">Caption generation isn't available in this preview. You can still add and position text overlays on the canvas.</p>`,
+  },
+  templates: {
+    title: "Templates",
+    description: "Start with a format made for your platform.",
+    label: "Templates",
+    html: `
+      <div class="template-grid">
+        <button class="template-card" type="button" data-ratio="vertical"><span class="template-art vertical">GG</span><span>TikTok / Reels</span></button>
+        <button class="template-card" type="button" data-ratio="vertical"><span class="template-art vertical">SHORTS</span><span>YouTube Shorts</span></button>
+        <button class="template-card" type="button" data-ratio="landscape"><span class="template-art landscape">HIGHLIGHT</span><span>Stream highlight</span></button>
+        <button class="template-card" type="button" data-ratio="landscape"><span class="template-art landscape">LET'S PLAY</span><span>Gameplay cut</span></button>
+      </div>
+      <p class="panel-note">Choose a layout to change your canvas aspect ratio. Add your own text and facecam framing on the preview.</p>`,
+  },
+  elements: {
+    title: "Elements",
+    description: "Little details that make it yours.",
+    label: "Elements",
+    html: `
+      <div class="element-list">
+        <button class="element-button" type="button" data-action="sticker" data-value="🔥"><svg viewBox="0 0 24 24" fill="none"><path d="M12.5 3c.4 3.4-2.8 4.4-2.8 7.3 0 1.2.7 2 1.6 2.4-.2-2 1.3-2.8 2.1-3.8 2.2 1.7 3.6 4.1 3.6 6.7a5 5 0 0 1-10 0c0-2.2 1-4.2 2.7-5.8C9.3 7 11 4.7 12.5 3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg>Fire</button>
+        <button class="element-button" type="button" data-action="sticker" data-value="GG"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 14.3 9l5.8.4-4.4 3.8 1.4 5.7-5.1-3-5.1 3 1.4-5.7-4.4-3.8 5.8-.4L12 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg>GG badge</button>
+        <button class="element-button" type="button" data-action="add-facecam"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5" /><circle cx="12" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5" /><path d="M7.5 17a5.5 5.5 0 0 1 9 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>Facecam</button>
+      </div>
+      <button class="secondary-button" type="button" data-action="add-text">＋ &nbsp; Add text overlay</button>
+      <p class="panel-note">Drag text and facecam overlays directly on the preview. Select one to adjust its size.</p>`,
+  },
+};
+
 let toastTimeout;
-
-function isSupportedReplay(value) {
-  try {
-    const url = new URL(value);
-    const host = url.hostname.toLowerCase().replace(/^www\./, "");
-
-    if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) return false;
-    if (host === "youtu.be") return /^[\w-]{6,20}$/.test(url.pathname.split("/").filter(Boolean)[0] || "");
-    if (host === "youtube.com" || host === "m.youtube.com") {
-      const videoId = url.searchParams.get("v") || url.pathname.match(/^\/(?:live|shorts|embed)\/([^/]+)/)?.[1];
-      return /^[\w-]{6,20}$/.test(videoId || "");
-    }
-    if (host === "twitch.tv" || host === "m.twitch.tv") {
-      return /^\/(?:[^/]+\/)?videos\/\d+(?:\/|$)/.test(url.pathname);
-    }
-  } catch {
-    return false;
-  }
-  return false;
-}
+let objectUrl = null;
+let activeFile = null;
+let trimStart = 0;
+let trimEnd = 0;
+let splitAt = null;
+let zoom = 100;
+let history = [];
+let future = [];
+let titlePosition = { x: 7, y: 9 };
+let facecamPosition = { x: 76, y: 58 };
+let titleScale = 100;
+let facecamScale = 100;
+let selectedOverlay = null;
+let titleText = "insane clutch";
+let extraSticker = null;
+let captionsAdded = false;
 
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add("is-visible");
   clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => toast.classList.remove("is-visible"), 4200);
-}
-
-function setFormMessage(message, isError = false) {
-  formMessage.textContent = message;
-  formMessage.classList.toggle("is-error", isError);
-}
-
-function normalizeHeader(value) {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let cell = "";
-  let quoted = false;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    if (char === '"' && quoted && text[i + 1] === '"') {
-      cell += '"';
-      i += 1;
-    } else if (char === '"') {
-      quoted = !quoted;
-    } else if (!quoted && char === ",") {
-      row.push(cell);
-      cell = "";
-    } else if (!quoted && (char === "\n" || char === "\r")) {
-      if (char === "\r" && text[i + 1] === "\n") i += 1;
-      row.push(cell);
-      if (row.some((value) => value.trim())) rows.push(row);
-      row = [];
-      cell = "";
-    } else {
-      cell += char;
-    }
-  }
-
-  if (quoted) throw new Error("The CSV has an unfinished quoted field.");
-  row.push(cell);
-  if (row.some((value) => value.trim())) rows.push(row);
-  if (rows.length < 2) throw new Error("The CSV needs a header row and at least one chat message.");
-
-  const headers = rows[0].map(normalizeHeader);
-  const timeIndex = headers.findIndex((header) => [
-    "time", "timestamp", "createdat", "contentoffsetseconds", "offset", "seconds", "videotime",
-  ].includes(header));
-  const messageIndex = headers.findIndex((header) => [
-    "message", "text", "body", "content", "comment",
-  ].includes(header));
-  if (timeIndex < 0 || messageIndex < 0) {
-    throw new Error("CSV headers must include a timestamp/time and a message/text column.");
-  }
-
-  return rows.slice(1).map((values) => ({
-    time: values[timeIndex],
-    text: values[messageIndex],
-  }));
-}
-
-function parseTimestamp(value) {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string" || !value.trim()) return null;
-  const text = value.trim();
-  if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text);
-
-  const clock = text.match(/^(?:(\d+):)?(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/);
-  if (clock) {
-    return (Number(clock[1] || 0) * 3600) + (Number(clock[2]) * 60) + Number(clock[3]) +
-      (clock[4] ? Number(`0.${clock[4]}`) : 0);
-  }
-
-  const date = Date.parse(text);
-  return Number.isNaN(date) ? null : date / 1000;
-}
-
-function extractJsonRows(data) {
-  if (Array.isArray(data)) return data;
-  if (!data || typeof data !== "object") return [];
-  for (const key of ["messages", "comments", "chat", "data"]) {
-    if (Array.isArray(data[key])) return data[key];
-  }
-  return [];
-}
-
-function parseJson(text) {
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error("The JSON file could not be read. Check that it is valid JSON.");
-  }
-
-  return extractJsonRows(data).map((item) => {
-    if (!item || typeof item !== "object") return { time: null, text: "" };
-    const time = item.content_offset_seconds ?? item.contentOffsetSeconds ?? item.offset ??
-      item.seconds ?? item.time ?? item.timestamp ?? item.created_at ?? item.createdAt;
-    let message = item.message ?? item.text ?? item.body ?? item.content ?? item.comment ?? "";
-    if (message && typeof message === "object") message = message.body ?? message.text ?? "";
-    return { time, text: typeof message === "string" ? message : "" };
-  });
-}
-
-function parseChat(text, fileName) {
-  const rows = fileName.toLowerCase().endsWith(".json") || text.trimStart().startsWith("{") ||
-    text.trimStart().startsWith("[")
-    ? parseJson(text)
-    : parseCsv(text);
-  const parsed = rows.map((row) => ({
-    time: parseTimestamp(row.time),
-    text: String(row.text || "").trim(),
-  })).filter((row) => row.time !== null && row.text);
-
-  if (!parsed.length) {
-    throw new Error("No usable messages found. Include a timestamp/time and message/text for each row.");
-  }
-  if (parsed.length > 500000) throw new Error("This export has too many messages to analyze in one file.");
-
-  const numericTimes = parsed.map((message) => message.time);
-  const minimumTime = numericTimes.reduce((minimum, time) => Math.min(minimum, time), Infinity);
-  const maximumTime = numericTimes.reduce((maximum, time) => Math.max(maximum, time), -Infinity);
-  const epochLike = numericTimes.some((time) => time > 100000000);
-  const isMilliseconds = epochLike && maximumTime > 100000000000;
-  const baseTime = epochLike ? minimumTime : 0;
-  const messages = parsed.map((message) => ({
-    time: Math.max(0, message.time / (isMilliseconds ? 1000 : 1) - baseTime / (isMilliseconds ? 1000 : 1)),
-    text: message.text,
-  }));
-  const duration = messages.reduce((maximum, message) => Math.max(maximum, message.time), 0);
-  if (duration > 7 * 24 * 3600) throw new Error("Chat timestamps span more than seven days; check the export format.");
-  return { messages, skipped: rows.length - parsed.length };
-}
-
-function findPeaks(messages) {
-  const lastMessageTime = messages.reduce((maximum, message) => Math.max(maximum, message.time), 0);
-  const binCount = Math.max(1, Math.floor(lastMessageTime / binSize) + 1);
-  const bins = Array.from({ length: binCount }, () => []);
-  messages.forEach((message) => bins[Math.floor(message.time / binSize)].push(message.text));
-  const average = messages.length / binCount;
-  const cutoff = Math.max(3, average * 1.5);
-  const candidates = [];
-
-  bins.forEach((items, index) => {
-    const previous = bins[index - 1]?.length ?? 0;
-    const next = bins[index + 1]?.length ?? 0;
-    if (items.length >= cutoff && items.length >= previous && items.length > next) {
-      candidates.push({ index, count: items.length, messages: items });
-    }
-  });
-
-  const selected = [];
-  candidates.sort((a, b) => b.count - a.count).forEach((peak) => {
-    if (selected.every((other) => Math.abs(other.index - peak.index) * binSize >= 60)) selected.push(peak);
-  });
-  return {
-    bins: bins.map((items) => items.length),
-    average,
-    peaks: selected.sort((a, b) => b.count - a.count).map((peak) => ({
-      time: peak.index * binSize,
-      count: peak.count,
-      ratio: peak.count / average,
-      excerpts: [...new Set(peak.messages)].slice(0, 3),
-    })),
-  };
+  toastTimeout = setTimeout(() => toast.classList.remove("is-visible"), 3600);
 }
 
 function formatTime(seconds) {
-  const whole = Math.floor(seconds);
-  const hours = Math.floor(whole / 3600);
-  const minutes = Math.floor((whole % 3600) / 60);
-  const remainder = whole % 60;
+  const total = Math.max(0, Math.floor(seconds || 0));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remaining = total % 60;
   return hours
-    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
-    : `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
 }
 
-function formatCount(count) {
-  return count.toLocaleString();
+function currentState() {
+  return {
+    ratio: stage.classList.contains("is-vertical") ? "vertical" : "landscape",
+    trimStart,
+    trimEnd,
+    splitAt,
+    titlePosition: { ...titlePosition },
+    facecamPosition: { ...facecamPosition },
+    titleScale,
+    facecamScale,
+    titleText,
+    extraSticker,
+    captionsAdded,
+  };
 }
 
-function replayAtTime(value, seconds) {
-  const url = new URL(value);
-  const host = url.hostname.toLowerCase().replace(/^www\./, "");
-  if (host === "twitch.tv") {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainder = seconds % 60;
-    url.searchParams.set("t", `${hours}h${minutes}m${remainder}s`);
-  } else {
-    url.searchParams.set("t", String(seconds));
-  }
-  return url.href;
+function updateHistoryButtons() {
+  document.querySelector("#undo-button").disabled = history.length === 0;
+  document.querySelector("#redo-button").disabled = future.length === 0;
 }
 
-function renderPeaks(result, total, fileName, skipped, replay = null) {
-  const peaks = result.peaks;
-  const replayUrl = input.value.trim();
-  peakList.replaceChildren();
+function saveHistory() {
+  history.push(currentState());
+  if (history.length > 50) history.shift();
+  future = [];
+  updateHistoryButtons();
+}
 
-  document.querySelector("#message-count").textContent = formatCount(total);
-  document.querySelector("#peak-count").textContent = String(peaks.length);
-  document.querySelector("#peak-list-count").textContent = `(${peaks.length})`;
-  document.querySelector("#biggest-moment").textContent = peaks.length ? formatTime(peaks[0].time) : "—";
-  document.querySelector("#video-title").textContent = replay?.title || fileName.replace(/\.(csv|json)$/i, "");
-  document.querySelector("#video-platform").textContent = replay
-    ? `${replay.platform.toUpperCase()} CHAT REPLAY`
-    : "UPLOADED CHAT EXPORT";
-  document.querySelector("#video-meta").textContent =
-    `${formatCount(total)} messages · ${formatTime(replay?.duration ?? result.bins.length * binSize)}`;
-  document.querySelector("#results-state").textContent = "ANALYZED CHAT";
-  document.querySelector("#results-caption").textContent = replay
-    ? `Peaks detected from public ${replay.platform} replay chat.`
-    : "Peaks detected from message volume in your export.";
-  document.querySelector("#results-footnote").lastChild.textContent =
-    replay
-      ? "Peaks use 30-second message counts. Chat is retrieved from the replay and not stored."
-      : "Peaks use 30-second message counts; uploaded chat exports stay in your browser.";
-  document.querySelector(".peak-tooltip").textContent = peaks.length
-    ? `PEAK · ${formatTime(peaks[0].time)}`
-    : "NO PEAKS FOUND";
-  document.querySelector("#chart-state").textContent = "ANALYZED";
-
-  if (!peaks.length) {
-    const empty = document.createElement("p");
-    empty.className = "empty-peaks";
-    empty.textContent = "No unusually busy moments found. Try a longer chat export or one with more activity variation.";
-    peakList.append(empty);
-  }
-
-  peaks.forEach((peak) => {
-    const row = document.createElement("button");
-    row.className = "peak-row";
-    row.type = "button";
-    row.dataset.time = formatTime(peak.time);
-    row.setAttribute("aria-pressed", "false");
-
-    const time = document.createElement("span");
-    time.className = "peak-time";
-    time.innerHTML = '<span class="play-icon">▶</span>';
-    time.append(document.createTextNode(` ${formatTime(peak.time)}`));
-
-    const copy = document.createElement("span");
-    copy.className = "peak-copy";
-    const heading = document.createElement("strong");
-    heading.textContent = `Chat spike · ${formatCount(peak.count)} messages in 30 sec`;
-    const excerpts = document.createElement("span");
-    excerpts.textContent = peak.excerpts.map((message) => `“${message}”`).join(" · ");
-    copy.append(heading, excerpts);
-
-    const volume = document.createElement("span");
-    volume.className = "peak-volume";
-    const bars = document.createElement("span");
-    bars.className = "mini-bars";
-    bars.setAttribute("aria-hidden", "true");
-    const ratio = document.createElement("strong");
-    ratio.textContent = `${peak.ratio.toFixed(1)}×`;
-    const average = document.createElement("span");
-    average.textContent = "avg. chat";
-    volume.append(bars, ratio, average);
-
-    const jump = document.createElement("span");
-    jump.className = "peak-jump";
-    jump.textContent = replayUrl ? "Jump to replay ↗" : "Add replay link ↗";
-    row.append(time, copy, volume, jump);
-    row.addEventListener("click", () => {
-      peakList.querySelectorAll(".peak-row").forEach((item) => {
-        const selected = item === row;
-        item.classList.toggle("is-selected", selected);
-        item.setAttribute("aria-pressed", String(selected));
-      });
-      const currentReplayUrl = input.value.trim();
-      if (isSupportedReplay(currentReplayUrl)) {
-        window.open(replayAtTime(currentReplayUrl, peak.time), "_blank", "noopener,noreferrer");
-      } else {
-        showToast(`Peak at ${formatTime(peak.time)} selected. Add a replay link to jump to it.`);
-      }
-    });
-    peakList.append(row);
+function applyState(state) {
+  stage.classList.toggle("is-vertical", state.ratio === "vertical");
+  document.querySelectorAll(".ratio-button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.ratio === state.ratio));
   });
-
-  renderChart(result.bins, peaks[0]);
-  const suffix = skipped ? ` ${skipped} rows were skipped.` : "";
-  setFormMessage(`Analyzed ${formatCount(total)} messages and found ${peaks.length} peak${peaks.length === 1 ? "" : "s"}.${suffix}`);
-  showToast(`Found ${peaks.length} chat peak${peaks.length === 1 ? "" : "s"} in ${replay?.title || fileName}.`);
-  document.querySelector("#moments").scrollIntoView({ behavior: "smooth", block: "start" });
+  trimStart = state.trimStart;
+  trimEnd = state.trimEnd;
+  splitAt = state.splitAt;
+  titlePosition = { ...state.titlePosition };
+  facecamPosition = { ...state.facecamPosition };
+  titleScale = state.titleScale;
+  facecamScale = state.facecamScale;
+  titleText = state.titleText;
+  extraSticker = state.extraSticker;
+  captionsAdded = state.captionsAdded;
+  titleOverlay.style.left = `${titlePosition.x}%`;
+  titleOverlay.style.top = `${titlePosition.y}%`;
+  titleOverlay.style.fontSize = `calc(clamp(14px, 1.8vw, 23px) * ${titleScale / 100})`;
+  titleCopy.textContent = titleText;
+  titleOverlay.setAttribute("aria-label", `Text overlay: ${titleText}. Select to adjust.`);
+  document.querySelector("#overlay-copy").value = titleText;
+  facecamOverlay.style.left = `${facecamPosition.x}%`;
+  facecamOverlay.style.top = `${facecamPosition.y}%`;
+  facecamOverlay.style.right = "auto";
+  facecamOverlay.style.bottom = "auto";
+  facecamOverlay.style.width = `${18 * facecamScale / 100}%`;
+  document.querySelector("#overlay-size").value = String(Math.round(
+    selectedOverlay === facecamOverlay ? facecamScale : titleScale,
+  ));
+  renderTimeline();
+  renderExtraSticker();
+  renderCaptions();
 }
 
-function renderChart(bins, peak) {
-  const visible = bins.length > 100 ? bins.filter((_, index) => index % Math.ceil(bins.length / 100) === 0) : bins;
-  const max = Math.max(1, ...visible);
-  const points = visible.map((count, index) => ({
-    x: (index / Math.max(1, visible.length - 1)) * 420,
-    y: 138 - (count / max) * 118,
-  }));
-  const line = points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
-  document.querySelector("#chart-line").setAttribute("d", line);
-  document.querySelector("#chart-area").setAttribute("d", `${line} L420 150 L0 150 Z`);
-  const peakX = peak ? (peak.time / (Math.max(1, bins.length - 1) * binSize)) * 420 : 0;
-  const peakY = peak ? 138 - (peak.count / max) * 118 : 0;
-  const peakGuide = document.querySelector("#peak-guide");
-  const peakDot = document.querySelector("#peak-dot");
-  peakGuide.hidden = !peak;
-  peakDot.hidden = !peak;
-  peakGuide.setAttribute("x1", peakX);
-  peakGuide.setAttribute("x2", peakX);
-  peakDot.setAttribute("cx", peakX);
-  peakDot.setAttribute("cy", peakY);
-  const duration = bins.length * binSize;
-  document.querySelector("#chart-axis").replaceChildren(...[0, 1, 2, 3].map((step) => {
-    const label = document.createElement("span");
-    label.textContent = formatTime(Math.round(duration * step / 3));
-    return label;
-  }));
-  document.querySelector(".signal-count").innerHTML =
-    `${peak ? `${peak.ratio.toFixed(1)}×` : "—"} <span>above avg.</span>`;
+function undo() {
+  if (!history.length) return;
+  future.push(currentState());
+  applyState(history.pop());
+  updateHistoryButtons();
 }
 
-input.addEventListener("input", () => {
-  const hasReplay = isSupportedReplay(input.value.trim());
-  peakList.querySelectorAll(".peak-jump").forEach((label) => {
-    label.textContent = hasReplay ? "Jump to replay ↗" : "Add replay link ↗";
+function redo() {
+  if (!future.length) return;
+  history.push(currentState());
+  applyState(future.pop());
+  updateHistoryButtons();
+}
+
+function setRatio(ratio, record = true) {
+  const isVertical = ratio === "vertical";
+  const alreadySet = stage.classList.contains("is-vertical") === isVertical;
+  if (alreadySet) return;
+  if (record) saveHistory();
+  stage.classList.toggle("is-vertical", isVertical);
+  document.querySelectorAll(".ratio-button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.ratio === ratio));
   });
-});
+}
 
-async function analyzeFile(file) {
-  if (!file) {
-    setFormMessage("Paste a replay link or choose a CSV/JSON chat export.", true);
-    return;
-  }
-  if (file.size > 20 * 1024 * 1024) {
-    setFormMessage("This file is larger than 20 MB. Choose a smaller chat export.", true);
-    return;
-  }
-  const replayUrl = input.value.trim();
-  if (replayUrl && !isSupportedReplay(replayUrl)) {
-    setFormMessage("The replay link must be a YouTube video or Twitch VOD URL.", true);
-    input.focus();
-    return;
-  }
-  analyzeButton.disabled = true;
-  analyzeButton.querySelector("span:first-child").textContent = "Analyzing...";
-  try {
-    const parsed = parseChat(await file.text(), file.name);
-    renderPeaks(findPeaks(parsed.messages), parsed.messages.length, file.name, parsed.skipped);
-  } catch (error) {
-    setFormMessage(error.message, true);
-  } finally {
-    analyzeButton.disabled = false;
-    analyzeButton.querySelector("span:first-child").textContent = "Find chat peaks";
+function switchPanel(name) {
+  const content = panelMarkup[name];
+  if (!content) return;
+  tabs.forEach((tab) => {
+    const active = tab.dataset.panel === name;
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  panel.setAttribute("aria-labelledby", `tab-${name}`);
+  panelTitle.textContent = content.title;
+  panelDescription.textContent = content.description;
+  panelContent.innerHTML = content.html || `
+    <div class="drop-zone" id="drop-zone">
+      <div class="upload-icon" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 22 22" fill="none"><path d="M11 14V4m0 0L7.5 7.5M11 4l3.5 3.5M4.5 13.5v3A1.5 1.5 0 0 0 6 18h10a1.5 1.5 0 0 0 1.5-1.5v-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg></div>
+      <strong>Drop your stream here</strong><p>MP4, MOV or WebM · stored on this device</p>
+      <button class="primary-button" id="choose-video" type="button">Choose a video</button>
+      <input class="sr-only" id="video-file" type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" />
+    </div>
+    <div class="section-label"><span>Your media</span><span id="media-count">0 items</span></div>
+    <div class="media-card" id="media-card">
+      <div class="media-thumb is-empty" id="media-thumb" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11Z" stroke="currentColor" /><path d="m10 8 5 4-5 4V8Z" fill="currentColor" /></svg></div>
+      <div class="media-info"><strong id="media-name">No video yet</strong><span id="media-size">Upload a clip to begin</span></div>
+      <button class="icon-button media-remove" id="remove-video" type="button" aria-label="Remove video" title="Remove video" hidden><svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="m5 5 8 8m0-8-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></button>
+    </div>
+    <p class="panel-note">Your video stays right here in your browser. It isn't uploaded to a server.</p>`;
+  if (content.html) return;
+  syncMediaPanel();
+  attachDropZone();
+}
+
+function syncMediaPanel() {
+  const mediaName = document.querySelector("#media-name");
+  if (!mediaName) return;
+  const hasVideo = Boolean(video.src);
+  mediaName.textContent = hasVideo ? activeFile?.name || "Stream clip" : "No video yet";
+  document.querySelector("#media-size").textContent = hasVideo
+    ? `${humanSize(activeFile?.size || 0)} · local video`
+    : "Upload a clip to begin";
+  document.querySelector("#media-count").textContent = hasVideo ? "1 item" : "0 items";
+  document.querySelector("#media-thumb").classList.toggle("is-empty", !hasVideo);
+  document.querySelector("#remove-video").hidden = !hasVideo;
+  if (hasVideo) {
+    document.querySelector("#media-thumb").innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" fill="currentColor" /></svg>';
   }
 }
 
-async function analyzeReplay(value) {
-  if (!value) {
-    setFormMessage("Paste a YouTube video or Twitch VOD link first.", true);
-    input.focus();
+function humanSize(bytes) {
+  return bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function attachDropZone() {
+  const zone = document.querySelector("#drop-zone");
+  const choose = document.querySelector("#choose-video");
+  const input = document.querySelector("#video-file");
+  if (!zone || !choose || !input) return;
+  choose.addEventListener("click", () => input.click());
+  input.addEventListener("change", () => loadVideo(input.files[0]));
+  ["dragenter", "dragover"].forEach((eventName) => zone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    zone.classList.add("is-dragging");
+  }));
+  ["dragleave", "drop"].forEach((eventName) => zone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    zone.classList.remove("is-dragging");
+  }));
+  zone.addEventListener("drop", (event) => loadVideo(event.dataTransfer.files[0]));
+}
+
+function loadVideo(file) {
+  if (!file) return;
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (!["mp4", "mov", "webm"].includes(extension)) {
+    showToast("Choose a video file in MP4, MOV or WebM format.");
     return;
   }
-  if (!isSupportedReplay(value)) {
-    setFormMessage("Use a public HTTPS YouTube video or Twitch VOD link.", true);
-    input.focus();
-    return;
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  activeFile = file;
+  objectUrl = URL.createObjectURL(file);
+  video.src = objectUrl;
+  video.hidden = false;
+  stage.classList.add("has-video");
+  document.querySelector("#clip-title").textContent = file.name;
+  syncMediaPanel();
+  showToast("Video ready. It's stored locally in this browser.");
+}
+
+function removeVideo() {
+  video.pause();
+  video.removeAttribute("src");
+  video.load();
+  video.hidden = true;
+  stage.classList.remove("has-video");
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  objectUrl = null;
+  activeFile = null;
+  document.querySelector("#video-file").value = "";
+  trimStart = 0;
+  trimEnd = 0;
+  splitAt = null;
+  syncMediaPanel();
+  renderTimeline();
+}
+
+function updateTime() {
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+  timeDisplay.textContent = formatTime(current);
+  durationDisplay.textContent = formatTime(duration);
+  timelineDuration.textContent = formatTime(duration);
+  if (duration > 0) {
+    const pct = Math.min(100, (current / duration) * 100);
+    playhead.style.left = `${pct}%`;
   }
-
-  analyzeButton.disabled = true;
-  analyzeButton.querySelector("span:first-child").textContent = "Finding chat...";
-  setFormMessage("Retrieving public chat. This can take a little while...");
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/analyze`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: value }),
-    });
-    if (!response.headers.get("content-type")?.includes("application/json")) {
-      throw new Error(
-        apiBaseUrl
-          ? "The configured analysis server returned a non-JSON response. Its URL may be incorrect."
-          : "This site has no running analysis server. GitHub Pages cannot analyze replay links; open the hosted Clxped site instead.",
-      );
-    }
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      throw new Error("The analysis server returned invalid JSON. Check the backend service.");
-    }
-    if (!response.ok) throw new Error(data.error || "Could not retrieve chat for that replay.");
-    if (!Array.isArray(data.messages) || !["youtube", "twitch"].includes(data.platform) ||
-      typeof data.title !== "string" || !data.title.trim() ||
-      !Number.isFinite(data.duration) || data.duration < 0 ||
-      !data.messages.every((message) => message && Number.isFinite(message.time) && message.time >= 0 &&
-        typeof message.text === "string" && message.text.trim())) {
-      throw new Error("The analysis server returned invalid chat data.");
-    }
-
-    const replay = {
-      platform: data.platform,
-      title: data.title,
-      duration: Number.isFinite(data.duration) ? data.duration : undefined,
-    };
-    const result = findPeaks(data.messages);
-    renderPeaks(result, data.messages.length, `${data.title || "Replay"} chat`, 0, replay);
-  } catch (error) {
-    setFormMessage(
-      error instanceof TypeError
-        ? "Could not reach the analysis server. Check that it is running and api-config.js points to it."
-        : error.message,
-      true,
-    );
-  } finally {
-    analyzeButton.disabled = false;
-    analyzeButton.querySelector("span:first-child").textContent = "Find chat peaks";
+  if (!video.paused && trimEnd > trimStart && current >= trimEnd) {
+    video.pause();
+    video.currentTime = trimEnd;
   }
 }
 
-form.addEventListener("submit", (event) => {
+function renderTimeline() {
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  const start = duration ? trimStart / duration * 100 : 0;
+  const end = duration ? trimEnd / duration * 100 : 72;
+  clip.style.left = `${start}%`;
+  clip.style.width = `${Math.max(0, end - start)}%`;
+  clip.classList.toggle("is-trimmed", start > 0 || (duration && end < 100));
+  document.querySelector("#trim-button").disabled = !duration;
+  document.querySelector("#split-button").disabled = !duration;
+  document.querySelector("#trim-start").setAttribute("aria-valuenow", String(Math.round(start)));
+  document.querySelector("#trim-end").setAttribute("aria-valuenow", String(Math.round(end)));
+  document.querySelector("#trim-start").setAttribute("aria-valuemin", "0");
+  document.querySelector("#trim-start").setAttribute("aria-valuemax", String(Math.round(end)));
+  document.querySelector("#trim-end").setAttribute("aria-valuemin", String(Math.round(start)));
+  document.querySelector("#trim-end").setAttribute("aria-valuemax", "100");
+  const ruler = document.querySelector("#time-ruler");
+  ruler.replaceChildren(...Array.from({ length: 6 }, (_, index) => {
+    const tick = document.createElement("span");
+    tick.className = "ruler-tick";
+    tick.style.left = `${index * 20}%`;
+    tick.textContent = formatTime(duration * index / 5);
+    return tick;
+  }));
+  const existingSplit = document.querySelector("#split-marker");
+  if (existingSplit) existingSplit.remove();
+  if (splitAt !== null && duration > 0) {
+    const marker = document.createElement("span");
+    marker.id = "split-marker";
+    marker.setAttribute("aria-label", `Split at ${formatTime(splitAt)}`);
+    marker.style.cssText = `position:absolute;z-index:2;top:6px;bottom:6px;left:${splitAt / duration * 100}%;width:2px;background:#ff886d;pointer-events:none`;
+    document.querySelector("#video-track").append(marker);
+  }
+  const overlay = document.querySelector("#overlay-clip");
+  overlay.style.left = duration ? `${start}%` : "12%";
+  overlay.style.width = duration ? `${Math.max(8, end - start)}%` : "24%";
+  document.querySelector("#overlay-clip").textContent = captionsAdded ? "CC  Captions" : "Aa  insane clutch";
+}
+
+function seekFromPointer(event) {
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  if (!duration) return;
+  const rect = document.querySelector("#track-content").getBoundingClientRect();
+  const position = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+  video.currentTime = position * duration;
+  updateTime();
+}
+
+function beginTrim(event, side) {
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  if (!duration) return;
   event.preventDefault();
-  const replayUrl = input.value.trim();
-  if (replayUrl) analyzeReplay(replayUrl);
-  else analyzeFile(fileInput.files[0]);
+  event.stopPropagation();
+  saveHistory();
+  const rect = document.querySelector("#track-content").getBoundingClientRect();
+  const update = (pointerEvent) => {
+    const point = Math.min(1, Math.max(0, (pointerEvent.clientX - rect.left) / rect.width));
+    const time = point * duration;
+    const minGap = Math.min(0.25, duration / 100);
+    if (side === "start") trimStart = Math.min(time, trimEnd - minGap);
+    else trimEnd = Math.max(time, trimStart + minGap);
+    trimStart = Math.max(0, trimStart);
+    trimEnd = Math.min(duration, trimEnd);
+    renderTimeline();
+    if (side === "start" && video.currentTime < trimStart) video.currentTime = trimStart;
+    if (side === "end" && video.currentTime > trimEnd) video.currentTime = trimEnd;
+  };
+  const finish = () => {
+    window.removeEventListener("pointermove", update);
+    window.removeEventListener("pointerup", finish);
+  };
+  window.addEventListener("pointermove", update);
+  window.addEventListener("pointerup", finish, { once: true });
+}
+
+function selectOverlay(element, label) {
+  selectedOverlay = element;
+  titleOverlay.classList.toggle("is-selected", element === titleOverlay);
+  facecamOverlay.classList.toggle("is-selected", element === facecamOverlay);
+  document.querySelector("#inspector-name").textContent = label;
+  document.querySelector("#overlay-text-row").hidden = element !== titleOverlay;
+  document.querySelector("#overlay-copy").value = titleText;
+  document.querySelector("#overlay-size").value = String(Math.round(
+    element === facecamOverlay ? facecamScale : titleScale,
+  ));
+  inspector.classList.add("is-visible");
+}
+
+function dragOverlay(event, element, kind) {
+  event.preventDefault();
+  const stageRect = stage.getBoundingClientRect();
+  const overlayRect = element.getBoundingClientRect();
+  const offsetX = event.clientX - overlayRect.left;
+  const offsetY = event.clientY - overlayRect.top;
+  selectOverlay(element, kind === "title" ? "Text overlay" : "Facecam frame");
+  saveHistory();
+
+  const move = (pointerEvent) => {
+    const left = Math.min(stageRect.width - overlayRect.width, Math.max(0, pointerEvent.clientX - stageRect.left - offsetX));
+    const top = Math.min(stageRect.height - overlayRect.height, Math.max(0, pointerEvent.clientY - stageRect.top - offsetY));
+    const position = {
+      x: left / stageRect.width * 100,
+      y: top / stageRect.height * 100,
+    };
+    if (kind === "title") titlePosition = position;
+    else facecamPosition = position;
+    element.style.left = `${position.x}%`;
+    element.style.top = `${position.y}%`;
+    element.style.right = "auto";
+    element.style.bottom = "auto";
+  };
+  const finish = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", finish);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", finish, { once: true });
+}
+
+function resizeOverlay(event, kind) {
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const startScale = kind === "facecam" ? facecamScale : titleScale;
+  const width = stage.getBoundingClientRect().width;
+  saveHistory();
+  const move = (pointerEvent) => {
+    const change = ((pointerEvent.clientX - startX) / width) * 100;
+    const scale = Math.min(140, Math.max(70, startScale + change));
+    if (kind === "facecam") {
+      facecamScale = scale;
+      facecamOverlay.style.width = `${18 * facecamScale / 100}%`;
+    } else {
+      titleScale = scale;
+      titleOverlay.style.fontSize = `calc(clamp(14px, 1.8vw, 23px) * ${titleScale / 100})`;
+    }
+    document.querySelector("#overlay-size").value = String(Math.round(scale));
+  };
+  const finish = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", finish);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", finish, { once: true });
+}
+
+function renderExtraSticker() {
+  let sticker = document.querySelector("#extra-sticker");
+  if (!extraSticker) {
+    sticker?.remove();
+    return;
+  }
+  if (!sticker) {
+    sticker = document.createElement("div");
+    sticker.id = "extra-sticker";
+    sticker.style.cssText = "position:absolute;z-index:3;top:45%;left:62%;padding:8px 11px;border:1px solid rgb(255 255 255 / 45%);border-radius:999px;background:#fff;color:#6b4bd4;font-size:15px;font-weight:800;box-shadow:0 3px 12px rgb(0 0 0 / 22%);";
+    stage.append(sticker);
+  }
+  sticker.textContent = extraSticker;
+}
+
+function renderCaptions() {
+  let caption = document.querySelector("#caption-overlay");
+  if (!captionsAdded) {
+    caption?.remove();
+    return;
+  }
+  if (!caption) {
+    caption = document.createElement("div");
+    caption.id = "caption-overlay";
+    caption.style.cssText = "position:absolute;z-index:3;bottom:20%;left:50%;max-width:85%;padding:7px 12px;border-radius:6px;background:rgb(20 21 32 / 78%);color:white;font-size:clamp(11px,1.3vw,17px);font-weight:750;text-align:center;text-shadow:0 1px 5px #000;transform:translateX(-50%);";
+    stage.append(caption);
+  }
+  caption.textContent = video.currentTime > 0 ? "what a play!" : "your highlight goes here";
+}
+
+function addTextOverlay() {
+  saveHistory();
+  titleText = "Your highlight";
+  titleCopy.textContent = titleText;
+  titleOverlay.setAttribute("aria-label", "Text overlay: Your highlight. Select to adjust.");
+  selectOverlay(titleOverlay, "Text overlay");
+  showToast("Text overlay added. Drag it to position.");
+}
+
+function performPanelAction(target) {
+  const action = target.dataset.action;
+  if (action === "add-captions") {
+    saveHistory();
+    captionsAdded = true;
+    renderCaptions();
+    renderTimeline();
+    showToast("Caption placeholder added to your preview.");
+  } else if (action === "caption-style") {
+    showToast("Bold highlight style selected.");
+  } else if (action === "sticker") {
+    saveHistory();
+    extraSticker = target.dataset.value;
+    renderExtraSticker();
+    showToast("Sticker added to your preview.");
+  } else if (action === "add-facecam") {
+    facecamOverlay.hidden = false;
+    selectOverlay(facecamOverlay, "Facecam frame");
+    showToast("Facecam frame added to your preview.");
+  } else if (action === "add-text") {
+    addTextOverlay();
+  }
+}
+
+tabs.forEach((tab) => tab.addEventListener("click", () => switchPanel(tab.dataset.panel)));
+document.querySelector(".sidebar").addEventListener("keydown", (event) => {
+  if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+  event.preventDefault();
+  const selected = tabs.findIndex((tab) => tab.getAttribute("aria-selected") === "true");
+  const direction = event.key === "ArrowDown" ? 1 : -1;
+  tabs[(selected + direction + tabs.length) % tabs.length].focus();
+});
+panelContent.addEventListener("click", (event) => {
+  const target = event.target.closest("button");
+  if (!target) return;
+  if (target.dataset.ratio) {
+    setRatio(target.dataset.ratio);
+    document.querySelectorAll(".ratio-button").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.ratio === target.dataset.ratio));
+    });
+    showToast(`${target.dataset.ratio === "vertical" ? "Vertical 9:16" : "Landscape 16:9"} layout selected.`);
+    return;
+  }
+  if (target.dataset.action) performPanelAction(target);
+});
+attachDropZone();
+
+document.querySelectorAll(".ratio-button").forEach((button) => {
+  button.addEventListener("click", () => setRatio(button.dataset.ratio));
+});
+document.querySelector("#remove-video").addEventListener("click", removeVideo);
+document.querySelector("#undo-button").addEventListener("click", undo);
+document.querySelector("#redo-button").addEventListener("click", redo);
+document.querySelector("#export-button").addEventListener("click", () => {
+  showToast(video.src
+    ? "Export isn't available in this preview yet. Your edits are still in this browser."
+    : "Upload a stream recording first. Export is coming in a future step.");
+});
+document.querySelector("#help-button").addEventListener("click", () => {
+  showToast("Your local-first clip editor preview. Upload a video, choose a layout, and arrange overlays.");
+});
+document.querySelector("#fit-button").addEventListener("click", () => {
+  stage.animate([{ transform: "scale(.98)" }, { transform: "scale(1)" }], { duration: 180 });
+});
+document.querySelector("#close-inspector").addEventListener("click", () => {
+  inspector.classList.remove("is-visible");
+  titleOverlay.classList.remove("is-selected");
+  facecamOverlay.classList.remove("is-selected");
+  selectedOverlay = null;
+});
+document.querySelector("#overlay-size").addEventListener("pointerdown", saveHistory);
+document.querySelector("#overlay-size").addEventListener("input", (event) => {
+  const scale = Number(event.target.value);
+  if (selectedOverlay === facecamOverlay) {
+    facecamScale = scale;
+    facecamOverlay.style.width = `${18 * facecamScale / 100}%`;
+  } else {
+    titleScale = scale;
+    titleOverlay.style.fontSize = `calc(clamp(14px, 1.8vw, 23px) * ${titleScale / 100})`;
+  }
+});
+document.querySelector("#overlay-copy").addEventListener("focus", saveHistory);
+document.querySelector("#overlay-copy").addEventListener("input", (event) => {
+  titleText = event.target.value;
+  titleCopy.textContent = titleText;
+  titleOverlay.setAttribute("aria-label", `Text overlay: ${titleText}. Select to adjust.`);
+});
+projectName.addEventListener("input", () => {
+  projectStatus.textContent = "Editing";
+});
+projectName.addEventListener("change", () => {
+  projectStatus.textContent = "In this tab";
+});
+document.querySelector("#play-button").addEventListener("click", async () => {
+  if (!video.src) {
+    showToast("Upload a video to preview playback.");
+    return;
+  }
+  try {
+    if (video.paused) await video.play();
+    else video.pause();
+  } catch (error) {
+    showToast(`Couldn't play this video: ${error.message}`);
+  }
+});
+video.addEventListener("loadedmetadata", () => {
+  trimStart = 0;
+  trimEnd = video.duration;
+  updateTime();
+  renderTimeline();
+  syncMediaPanel();
+});
+video.addEventListener("error", () => {
+  if (video.src) showToast("This video couldn't be previewed. Try an MP4, MOV or WebM file supported by your browser.");
+});
+video.addEventListener("timeupdate", () => {
+  updateTime();
+  renderCaptions();
+});
+video.addEventListener("play", () => {
+  document.querySelector("#play-button").classList.add("is-playing");
+  document.querySelector("#play-button").setAttribute("aria-label", "Pause preview");
+});
+video.addEventListener("pause", () => {
+  document.querySelector("#play-button").classList.remove("is-playing");
+  document.querySelector("#play-button").setAttribute("aria-label", "Play preview");
+});
+document.querySelector("#skip-back-button").addEventListener("click", () => {
+  video.currentTime = trimStart;
+  updateTime();
+});
+document.querySelector("#volume-control").addEventListener("input", (event) => {
+  video.volume = Number(event.target.value);
+});
+document.querySelector("#trim-button").addEventListener("click", () => {
+  if (!video.duration) {
+    showToast("Upload a video to trim the timeline.");
+    return;
+  }
+  if (trimStart === 0 && trimEnd === video.duration) {
+    saveHistory();
+    trimStart = video.duration * 0.1;
+    trimEnd = video.duration * 0.9;
+  } else {
+    saveHistory();
+    trimStart = 0;
+    trimEnd = video.duration;
+  }
+  video.currentTime = trimStart;
+  renderTimeline();
+  updateTime();
+});
+document.querySelector("#split-button").addEventListener("click", () => {
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  if (!duration) {
+    showToast("Upload a video before splitting a clip.");
+    return;
+  }
+  const point = video.currentTime;
+  if (point <= trimStart + 0.1 || point >= trimEnd - 0.1) {
+    showToast("Move the playhead inside the clip to split it.");
+    return;
+  }
+  saveHistory();
+  splitAt = point;
+  renderTimeline();
+  showToast(`Clip split at ${formatTime(point)}.`);
+});
+document.querySelector("#trim-start").addEventListener("pointerdown", (event) => beginTrim(event, "start"));
+document.querySelector("#trim-end").addEventListener("pointerdown", (event) => beginTrim(event, "end"));
+["start", "end"].forEach((side) => {
+  document.querySelector(`#trim-${side}`).addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp"].includes(event.key)) return;
+    event.preventDefault();
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    if (!duration) return;
+    saveHistory();
+    const direction = event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 1;
+    const step = Math.max(0.25, duration / 100);
+    if (side === "start") trimStart = Math.max(0, Math.min(trimEnd - step, trimStart + direction * step));
+    else trimEnd = Math.min(duration, Math.max(trimStart + step, trimEnd + direction * step));
+    if (side === "start" && video.currentTime < trimStart) video.currentTime = trimStart;
+    if (side === "end" && video.currentTime > trimEnd) video.currentTime = trimEnd;
+    renderTimeline();
+  });
+});
+document.querySelector("#track-content").addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".trim-handle")) return;
+  if (event.target.closest(".clip-block")) {
+    seekFromPointer(event);
+    return;
+  }
+  if (event.target.closest(".track-row, .time-ruler")) seekFromPointer(event);
+});
+titleOverlay.addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".resize-handle")) resizeOverlay(event, "title");
+  else dragOverlay(event, titleOverlay, "title");
+});
+facecamOverlay.addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".resize-handle")) resizeOverlay(event, "facecam");
+  else dragOverlay(event, facecamOverlay, "facecam");
+});
+titleOverlay.addEventListener("click", () => selectOverlay(titleOverlay, "Text overlay"));
+facecamOverlay.addEventListener("click", () => selectOverlay(facecamOverlay, "Facecam frame"));
+titleOverlay.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") selectOverlay(titleOverlay, "Text overlay");
+});
+facecamOverlay.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") selectOverlay(facecamOverlay, "Facecam frame");
+});
+document.querySelector("#zoom-in").addEventListener("click", () => {
+  zoom = Math.min(200, zoom + 25);
+  document.querySelector("#zoom-label").textContent = `${zoom}%`;
+  document.querySelector("#track-content").style.minWidth = `${640 * zoom / 100}px`;
+});
+document.querySelector("#zoom-out").addEventListener("click", () => {
+  zoom = Math.max(50, zoom - 25);
+  document.querySelector("#zoom-label").textContent = `${zoom}%`;
+  document.querySelector("#track-content").style.minWidth = `${640 * zoom / 100}px`;
 });
 
-uploadButton.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", () => {
-  uploadName.textContent = fileInput.files[0]?.name || "CSV or JSON fallback";
-  if (fileInput.files[0]) analyzeFile(fileInput.files[0]);
+window.addEventListener("beforeunload", () => {
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
 });
+
+updateHistoryButtons();
+renderTimeline();

@@ -1,9 +1,6 @@
 services:
   - type: web
-    name: clxped-breezebroo
+    name: clip-studio-breezebroo
     runtime: docker
     plan: free
     healthCheckPath: /
-    envVars:
-      - key: ALLOWED_ORIGINS
-        value: https://breezebroo.github.io
